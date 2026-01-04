@@ -226,7 +226,7 @@
 - Priority: P0
 - Story IDs: US-USERS-006
 - Preconditions: Admin token.
-- Test data: Non-destructive payloads `employeeCode="T3_001' OR '1'='1'--"`; `phone="0900'; SELECT 1; --"`. Use only in isolated test environments; never run against production.
+- Test data: Non-destructive payloads `employeeCode="T3_001' OR '1'='1'--"`; `phone="0900'; SELECT 1; --"`. Use only in isolated test environments; never run against production. These are example patterns—implementations must ensure payloads remain safe and non-destructive.
 - Steps: GET `/api/v1/users` with injected query params.
 - Expected results: 400 validation or empty result; no error leakage; correlationId present.
 - Evidence: API response; server logs absence of SQL error.
