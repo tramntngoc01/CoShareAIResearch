@@ -1,8 +1,9 @@
 # Test Cases — ORDERS: Orders
 
 ## Section 1: Scope & assumptions
-- Scope: module ORDERS across all APIs in OpenAPI `orders` tag, covering SRS-ORDERS, Stories US-ORDERS-001 → 005, StoryPacks US-ORDERS-001 → 004. No dedicated ScreenSpec `SC-ORDERS-*` provided; UI references use API-driven assertions.
-- Assumptions (from SRS/Open Questions): single-delivery per order (A-ORDERS-001), POD required to mark `Đã nhận` unless policy says otherwise (A-ORDERS-003), allowed cancelable statuses and auto-cancel window are TBD (Q-ORDERS-001/002), detailed return policy TBD (Q-ORDERS-003). Tests blocked on TBD items are marked explicitly.
+- Scope: module ORDERS across all APIs in OpenAPI `orders` tag, covering SRS-ORDERS, Stories US-ORDERS-001 → 005, StoryPacks US-ORDERS-001 → 004 (no StoryPack provided for US-ORDERS-005; covered via Story + SRS). No dedicated ScreenSpec `SC-ORDERS-*` provided; UI references use API-driven assertions.
+- Assumptions (from SRS/Open Questions): single-delivery per order (A-ORDERS-001), POD required to mark `Đã nhận` unless policy says otherwise (A-ORDERS-003), allowed cancelable statuses and auto-cancel window are TBD (Q-ORDERS-001/002), detailed return policy TBD (Q-ORDERS-003). Tests blocked on TBD items are marked explicitly as "Blocked by requirement ...".
+- Status naming uses Vietnamese display status with English status code in parentheses where needed (e.g., `Đã nhận` / `COMPLETED`) for clarity.
 - Error shape per `Error-Conventions.md` with `error.code` and `correlationId`. No PII in messages/logs.
 
 ## Section 2: Test data set (fake)
@@ -67,7 +68,7 @@
   - Audit fields `requestedBy`, `approvedBy`, timestamps populated.
   - CorrelationId present; no PII in messages.
 - Evidence to capture: cancel request response, decision response, final order detail.
-- Notes: Blocked if cancelable statuses list not finalized (Q-ORDERS-001); execute with currently allowed statuses once defined.
+- Notes: Blocked by requirement Q-ORDERS-001 until cancellable statuses are defined; execute once finalized.
 
 ### E2E-ORDERS-004 — Record return/exchange at pickup point
 - Priority: P0
@@ -83,7 +84,7 @@
   - Order/return status reflects return flow per OpenAPI schema.
   - CorrelationId returned; no PII leakage.
 - Evidence to capture: return creation response, subsequent order/return detail.
-- Notes: Blocked by requirement until return eligibility rules (Q-ORDERS-003) are finalized.
+- Notes: Blocked by requirement Q-ORDERS-003 until return eligibility rules are finalized.
 
 ### E2E-ORDERS-005 — End User views order history
 - Priority: P1
@@ -146,7 +147,7 @@
   - 400 with `error.code=ORDERS_PAYMENT_LIMIT_EXCEEDED` (per StoryPack); correlationId present.
   - No order created.
 - Evidence to capture: error response, correlationId.
-- Notes: Blocked until PAYMENTS limit mock available; mark as blocked if not configured.
+- Notes: Blocked by environment until PAYMENTS deferred-limit configuration/mocks are available.
 
 ### IT-ORDERS-004 — Prevent invalid status transition
 - Priority: P0
@@ -203,7 +204,7 @@
   - 400 with `error.code=ORDERS_CANCEL_NOT_ALLOWED_STATUS`; no cancel record created.
   - CorrelationId present.
 - Evidence to capture: error response, cancel-requests list.
-- Notes: Depends on finalized cancellable status list (Q-ORDERS-001); mark blocked if undefined.
+- Notes: Blocked by requirement Q-ORDERS-001 until cancellable statuses are finalized.
 
 ### IT-ORDERS-008 — Prevent duplicate cancel request
 - Priority: P0
@@ -244,7 +245,7 @@
 - Expected results:
   - 400 with `error.code=ORDERS_RETURN_QUANTITY_INVALID`; no return created.
 - Evidence to capture: error response, order detail.
-- Notes: Blocked until return quantity rules confirmed (Q-ORDERS-003); mark as blocked if unspecified.
+- Notes: Blocked by requirement Q-ORDERS-003 until return quantity rules are confirmed.
 
 ### IT-ORDERS-011 — List my orders scoped to current user
 - Priority: P1
@@ -352,7 +353,7 @@
   - Only first valid transition succeeds; duplicates rejected (400/409) without multiple state changes.
   - If rate-limit configured, 429 returned after threshold; correlationId present.
 - Evidence to capture: sequence of responses, final order detail.
-- Notes: Mark as blocked if rate-limit policy not configured.
+- Notes: Blocked by policy (Q-ORDERS-004) until rate-limit configuration is defined.
 
 ## Section 6: Regression Suite (IDs list with brief references)
 - REG-ORDERS-001: Regression marker for full lifecycle happy path (reuse E2E-ORDERS-002 steps).
