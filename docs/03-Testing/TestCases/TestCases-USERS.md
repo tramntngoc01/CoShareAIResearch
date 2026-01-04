@@ -189,9 +189,8 @@
 - Test data: `page=0` and `pageSize=0` in the same request to trigger validation on both parameters.
 - Steps: GET `/api/v1/users?page=0&pageSize=0`.
 - Expected results: 400 with code `USERS_SEARCH_FILTER_INVALID`; no data returned.
-- Notes: API pagination convention for `/api/v1` requires page/pageSize ≥ 1; 0-based paging is not supported.
+- Notes: API pagination convention for `/api/v1` requires page/pageSize ≥ 1; 0-based paging is not supported; validates pagination guardrails.
 - Evidence: API response with correlationId.
-- Notes: Validates pagination guardrails.
 
 ### IT-USERS-010 — Search rejects pageSize over limit
 - Priority: P0
@@ -232,7 +231,7 @@
   employeeCode="T3_001' OR '1'='1'--"
   phone="0900'; SELECT 1; --"
   ```
-  Implementations must ensure payloads remain safe and non-destructive; never run against production. Optional additional patterns for breadth: NoSQL-like `{ "$gt": "" }` or XSS `<script>alert(1)</script>` in text fields.
+  Implementations must ensure payloads remain safe and non-destructive; never run against production. These strings are examples only—use sanitized, non-destructive variants in isolated test environments. Optional additional patterns for breadth: NoSQL-like `{ "$gt": "" }` or XSS `<script>alert(1)</script>` in text fields.
 - Steps: GET `/api/v1/users` with injected query params.
 - Expected results: 400 validation or empty result; no error leakage; correlationId present.
 - Evidence: API response; server logs absence of SQL error.
