@@ -1,7 +1,7 @@
 /**
- * SuccessScreen - Registration Success State
+ * SuccessScreen - Registration/Login Success State
  * 
- * Displayed after successful OTP verification.
+ * Displayed after successful OTP verification for both registration and login.
  * 
  * data-field selectors:
  * - state.success: Success state container
@@ -12,9 +12,10 @@ import type { LoginResponse } from '../../api/types';
 
 interface SuccessScreenProps {
   loginResponse: LoginResponse;
+  mode?: 'register' | 'login';  // Default: 'register' for backward compatibility
 }
 
-export default function SuccessScreen({ loginResponse }: SuccessScreenProps) {
+export default function SuccessScreen({ loginResponse, mode = 'register' }: SuccessScreenProps) {
   const user = loginResponse.endUser;
 
   const handleContinue = () => {
@@ -42,7 +43,7 @@ export default function SuccessScreen({ loginResponse }: SuccessScreenProps) {
           <polyline points="22,4 12,14.01 9,11.01" />
         </svg>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>
-          Đăng ký thành công!
+          {mode === 'login' ? 'Đăng nhập thành công!' : 'Đăng ký thành công!'}
         </h2>
         <p>Chào mừng bạn đến với CoShare</p>
       </div>

@@ -42,7 +42,7 @@ export default function LoginPage() {
         )}
 
         {login.step === 'success' && login.loginResponse && (
-          <SuccessScreen loginResponse={login.loginResponse} />
+          <SuccessScreen loginResponse={login.loginResponse} mode="login" />
         )}
       </div>
     </div>
