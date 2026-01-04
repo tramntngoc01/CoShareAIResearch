@@ -9,7 +9,8 @@
 
 ## 2) Test data set (fake)
 - Company: `CTY_A`, Pickup Point: `PUP_A1`
-- Tiers: `T1_001` (Tầng 1 / Tier 1), `T2_001` (Tầng 2 / Tier 2, parent `T1_001`), `T2_005` (alternate Tầng 2 / Tier 2 for ref-tier change), `T3_001` (Tầng 3 / Tier 3, parent `T2_001`), Shipper: `SHIP_001`
+- Tiers: `T1_001` (Tầng 1 / Tier 1), `T2_001` (Tầng 2 / Tier 2, parent `T1_001`), `T2_005` (alternate Tầng 2 / Tier 2 for ref-tier change), `T3_001` (Tầng 3 / Tier 3, parent `T2_001`)
+- Shipper: `SHIP_001` (separate role, not part of tier tree)
 - Users (ids are sample placeholders): `10010` (T3), `10020` (Admin-editable KYC), `10030` (End User), `10040` (status toggle), `10050` (ref tier change candidate)
 - Files: Valid CSV with headers `employee_code,full_name,phone,company_code,pickup_point_code,tier,ref_tier_code`; oversized file placeholder of 200k rows to trigger limit.
 
@@ -187,7 +188,7 @@
 - Preconditions: Admin token.
 - Test data: `page=0` and `pageSize=0` in the same request to trigger validation on both parameters.
 - Steps: GET `/api/v1/users?page=0&pageSize=0`.
-- Expected results: 400 with code `USERS_SEARCH_FILTER_INVALID`; no data returned.
+- Expected results: 400 with code `USERS_SEARCH_FILTER_INVALID`; no data returned. (API expects page/pageSize ≥ 1 per pagination convention.)
 - Evidence: API response with correlationId.
 - Notes: Validates pagination guardrails.
 
@@ -225,7 +226,7 @@
 - Priority: P0
 - Story IDs: US-USERS-006
 - Preconditions: Admin token.
-- Test data: Non-destructive payloads `employeeCode="T3_001' OR '1'='1'--"`; `phone="0900'; SELECT 1; --"`.
+- Test data: Non-destructive payloads `employeeCode="T3_001' OR '1'='1'--"`; `phone="0900'; SELECT 1; --"`. Use only in isolated test environments; never run against production.
 - Steps: GET `/api/v1/users` with injected query params.
 - Expected results: 400 validation or empty result; no error leakage; correlationId present.
 - Evidence: API response; server logs absence of SQL error.
@@ -251,7 +252,7 @@
 - Priority: P0
 - Story IDs: US-USERS-003, US-USERS-004
 - Preconditions: Admin or End User session.
-- Steps: Submit invalid KYC with full CCCD (Vietnam citizen ID); trigger validation failure.
+- Steps: Submit invalid KYC with fake/full-format CCCD (Vietnam citizen ID) only; trigger validation failure.
 - Expected results: Error message masks sensitive fields; no full CCCD/birthDate in logs; correlationId present.
 - Evidence: Error payload; sanitized server log snippet (if accessible).
 
@@ -267,6 +268,7 @@
 - E2E-USERS-001, E2E-USERS-002, E2E-USERS-003, E2E-USERS-004, E2E-USERS-005
 - IT-USERS-001, IT-USERS-002, IT-USERS-003, IT-USERS-005, IT-USERS-007, IT-USERS-009
 - SEC-USERS-001, SEC-USERS-002, SEC-USERS-004, SEC-USERS-005
+- Note: Excludes IT-USERS-004/006/008/010/011 and SEC-USERS-003/006 from smoke regression because they are role-specific or rate-limit/session-expiry scenarios suited for extended suites.
 
 ## 7) Open Questions / blockers
 - OQ-USERS-001: Final import file schema, required columns, and dedupe/overwrite policy are TBD → blocks E2E-USERS-001, IT-USERS-001, IT-USERS-002, SEC-USERS-004.
