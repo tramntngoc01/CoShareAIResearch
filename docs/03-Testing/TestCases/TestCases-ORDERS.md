@@ -63,7 +63,7 @@
 - Priority: P0
 - Story IDs: US-ORDERS-003
 - Screen IDs: N/A (API-driven)
-- Preconditions: Order in cancellable status (e.g., `Đã xác nhận`) belonging to `user_t3`; `ops_admin_01` and `super_admin_01` authenticated.
+- Preconditions: Order in cancelable status (e.g., `Đã xác nhận`) belonging to `user_t3`; `ops_admin_01` and `super_admin_01` authenticated.
 - Test data (fake): cancel reason "NCC hết hàng", Idempotency-Key `idem-ord-cancel-001`.
 - Steps:
   1. Ops calls `POST /api/v1/orders/{id}/cancel-request` with reason.
@@ -76,7 +76,7 @@
   - Audit fields `requestedBy`, `approvedBy`, timestamps populated.
   - CorrelationId present; no PII in messages.
 - Evidence to capture: cancel request response, decision response, final order detail.
-- Notes: Blocked by requirement Q-ORDERS-001 until cancellable statuses are defined; execute once finalized.
+- Notes: Blocked by requirement Q-ORDERS-001 until cancelable statuses are defined; execute once finalized.
 
 ### E2E-ORDERS-004 — Record return/exchange at pickup point
 - Priority: P0
@@ -200,7 +200,7 @@
 - Evidence to capture: error response, follow-up order detail.
 - Notes: Enforces StoryPack-002 error mapping.
 
-### IT-ORDERS-007 — Reject cancel request when status not cancellable
+### IT-ORDERS-007 — Reject cancel request when status not cancelable
 - Priority: P0
 - Story IDs: US-ORDERS-003
 - Screen IDs: N/A
@@ -212,7 +212,7 @@
   - 400 with `error.code=ORDERS_CANCEL_NOT_ALLOWED_STATUS`; no cancel record created.
   - CorrelationId present.
 - Evidence to capture: error response, cancel-requests list.
-- Notes: Blocked by requirement Q-ORDERS-001 until cancellable statuses are finalized.
+- Notes: Blocked by requirement Q-ORDERS-001 until cancelable statuses are finalized.
 
 ### IT-ORDERS-008 — Prevent duplicate cancel request
 - Priority: P0
@@ -324,7 +324,7 @@
 - Priority: P1
 - Story IDs: US-ORDERS-003, US-ORDERS-004
 - Screen IDs: N/A
-- Preconditions: Order in cancellable or deliverable status.
+- Preconditions: Order in cancelable or deliverable status.
 - Test data (fake): reason `<script>alert(1)</script>`; note with SQL-like input.
 - Steps:
   1. Submit cancel request with injected reason.
@@ -371,7 +371,7 @@
 - REG-ORDERS-005: Regression marker for authz on order access (reuse SEC-ORDERS-001).
 
 ## Section 7: Open Questions / blockers
-- Q-ORDERS-001: Exact list of cancellable statuses. Tests IT-ORDERS-007 and E2E-ORDERS-003 blocked until clarified.
+- Q-ORDERS-001: Exact list of cancelable statuses. Tests IT-ORDERS-007 and E2E-ORDERS-003 blocked until clarified.
 - Q-ORDERS-002: Auto-cancel/stock release timeout for pending confirmation. No testcase until rule defined.
 - Q-ORDERS-003: Detailed return/ exchange policy (eligible statuses, quantity caps, timelines). Tests E2E-ORDERS-004 and IT-ORDERS-010 blocked until clarified.
 - Q-ORDERS-004: Rate-limit policies for ORDERS APIs. SEC-ORDERS-006 blocked until limits defined.
