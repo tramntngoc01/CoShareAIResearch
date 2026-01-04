@@ -188,7 +188,8 @@
 - Preconditions: Admin token.
 - Test data: `page=0` and `pageSize=0` in the same request to trigger validation on both parameters.
 - Steps: GET `/api/v1/users?page=0&pageSize=0`.
-- Expected results: 400 with code `USERS_SEARCH_FILTER_INVALID`; no data returned. (Per API pagination convention `/api/v1` requires page/pageSize ≥ 1; 0-based paging is not supported.)
+- Expected results: 400 with code `USERS_SEARCH_FILTER_INVALID`; no data returned.
+- Notes: API pagination convention for `/api/v1` requires page/pageSize ≥ 1; 0-based paging is not supported.
 - Evidence: API response with correlationId.
 - Notes: Validates pagination guardrails.
 
@@ -231,7 +232,7 @@
   employeeCode="T3_001' OR '1'='1'--"
   phone="0900'; SELECT 1; --"
   ```
-  Implementations must ensure payloads remain safe and non-destructive; never run against production.
+  Implementations must ensure payloads remain safe and non-destructive; never run against production. Optional additional patterns for breadth: NoSQL-like `{ "$gt": "" }` or XSS `<script>alert(1)</script>` in text fields.
 - Steps: GET `/api/v1/users` with injected query params.
 - Expected results: 400 validation or empty result; no error leakage; correlationId present.
 - Evidence: API response; server logs absence of SQL error.
@@ -271,9 +272,9 @@
 
 ## 6) Regression Suite
 - E2E-USERS-001, E2E-USERS-002, E2E-USERS-003, E2E-USERS-004, E2E-USERS-005
-- IT-USERS-001, IT-USERS-002, IT-USERS-003, IT-USERS-005, IT-USERS-007, IT-USERS-009
+- IT-USERS-001, IT-USERS-002, IT-USERS-003, IT-USERS-004, IT-USERS-005, IT-USERS-007, IT-USERS-009
 - SEC-USERS-001, SEC-USERS-002, SEC-USERS-004, SEC-USERS-005
-- Note: Excludes IT-USERS-004/006/008/010/011 and SEC-USERS-003/006 from smoke regression because they are role-specific or rate-limit/session-expiry scenarios suited for extended suites.
+- Note: Excludes IT-USERS-006/008/010/011 and SEC-USERS-003/006 from smoke regression because they are validation-volume, rate-limit, or session-expiry scenarios better suited for extended suites.
 
 ## 7) Open Questions / blockers
 - OQ-USERS-001: Final import file schema, required columns, and dedupe/overwrite policy are TBD → blocks E2E-USERS-001, IT-USERS-001, IT-USERS-002, SEC-USERS-004.
