@@ -9,7 +9,7 @@
 
 ## 2) Test data set (fake)
 - Company: `CTY_A`, Pickup Point: `PUP_A1`
-- Tiers: `T1_001` (Tầng 1), `T2_001` (Tầng 2, parent `T1_001`), `T3_001` (Tầng 3, parent `T2_001`), Shipper: `SHIP_001`
+- Tiers: `T1_001` (Tầng 1), `T2_001` (Tầng 2, parent `T1_001`), `T2_005` (alternate Tầng 2 for ref-tier change), `T3_001` (Tầng 3, parent `T2_001`), Shipper: `SHIP_001`
 - Users (ids are sample placeholders): `10010` (T3), `10020` (Admin-editable KYC), `10030` (End User), `10040` (status toggle), `10050` (ref tier change candidate)
 - Files: Valid CSV with headers `employee_code,full_name,phone,company_code,pickup_point_code,tier,ref_tier_code`; oversized file placeholder of 200k rows to trigger limit.
 
@@ -185,7 +185,7 @@
 - Priority: P0
 - Story IDs: US-USERS-006
 - Preconditions: Admin token.
-- Test data: `page=0` or `pageSize=0`.
+- Test data: `page=0` and `pageSize=0` in the same request to trigger validation on both parameters.
 - Steps: GET `/api/v1/users?page=0&pageSize=0`.
 - Expected results: 400 with code `USERS_SEARCH_FILTER_INVALID`; no data returned.
 - Evidence: API response with correlationId.
@@ -225,7 +225,7 @@
 - Priority: P0
 - Story IDs: US-USERS-006
 - Preconditions: Admin token.
-- Test data: `employeeCode="T3_001' OR '1'='1"`; `phone="0900';drop table--"`.
+- Test data: `employeeCode="T3_001' OR '1'='1"`; `phone="0900'; SELECT 1; --"`.
 - Steps: GET `/api/v1/users` with injected query params.
 - Expected results: 400 validation or empty result; no error leakage; correlationId present.
 - Evidence: API response; server logs absence of SQL error.
