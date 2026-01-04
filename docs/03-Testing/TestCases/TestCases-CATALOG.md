@@ -8,22 +8,24 @@
 
 ## 2) Test data set (fake)
 - Category: `{categoryId: 10, categoryCode: "FOOD-INSTANT", name: "Mì ăn liền", isActive: true}`
+- Secondary category (for negative mix): `{categoryId: 20, categoryCode: "DRINK-WATER", name: "Nước uống đóng chai", isActive: true}`
 - Supplier: `{supplierId: 300, supplierCode: "NCC_TP_A"}`
 - Products:
   - P1 `{productId: 1001, productCode: "SP-MI-TOM-001", barCode: "8931234567890", unit: "Gói", unitPrice: 6500, isActive: true}`
   - P2 `{productId: 1002, productCode: "SP-MI-TOM-002", unit: "Thùng", unitPrice: 120000, isActive: true}`
-- Batch (approved): `{batchId: 5001, categoryId: 10, supplierId: 300, status: "APPROVED", importDate: "2026-01-05", items: [{productId:1001, quantityImported:1000},{productId:1002, quantityImported:800}], documents:["https://fakehost/bill_0123.pdf"], images:["https://fakehost/lot_5001_1.jpg"]}`
+- P3 (other category) `{productId: 2001, productCode: "NUOC-500", categoryId: 20, unit: "Chai", unitPrice: 5000, isActive: true}`
+- Batch (approved): `{batchId: 5001, categoryId: 10, supplierId: 300, status: "APPROVED", importDate: "<YYYY-MM-DD - use execution date>", items: [{productId:1001, quantityImported:1000},{productId:1002, quantityImported:800}], documents:["https://fakehost/bill_0123.pdf"], images:["https://fakehost/lot_5001_1.jpg"]}`
 - Batch (rejected): `{batchId: 5002, categoryId: 10, status: "REJECTED"}` for negative flows.
 
 ## 3) E2E testcases (P0 then P1)
 
 ### E2E-CATALOG-001 — Admin creates sellable products visible to End User (happy path)
-- **Priority:** P0  
-- **Story IDs:** US-CATALOG-001, US-CATALOG-002, US-CATALOG-003, US-CATALOG-004, US-CATALOG-005  
-- **Screen IDs:** TBD (Admin Product List, Batch Detail, End User Product List)  
-- **Preconditions:** Admin and QC tokens available; supplier exists; category not yet present in system.  
-- **Test data:** Category `FOOD-INSTANT`; Products P1, P2; Batch 5001 (see dataset).  
-- **Steps:**  
+- Priority: P0  
+- Story IDs: US-CATALOG-001, US-CATALOG-002, US-CATALOG-003, US-CATALOG-004, US-CATALOG-005  
+- Screen IDs: TBD (Admin Product List, Batch Detail, End User Product List)  
+- Preconditions: Admin and QC tokens available; supplier exists; category not yet present in system.  
+- Test data: Category `FOOD-INSTANT`; Products P1, P2; Batch 5001 (see dataset).  
+- Steps:  
   1. Admin `POST /api/v1/catalog/categories` with `FOOD-INSTANT`.  
   2. Admin `POST /api/v1/catalog/admin/products` for P1 then P2, linking categoryId=10, supplierId=300.  
   3. QC `POST /api/v1/catalog/batches` with items P1/P2 under categoryId=10, status defaults PENDING_REVIEW.  
@@ -41,12 +43,12 @@
 - **Notes:** Establishes end-to-end readiness for ORDERS to consume stock.
 
 ### E2E-CATALOG-002 — Rejected batch never surfaces to End User
-- **Priority:** P0  
-- **Story IDs:** US-CATALOG-003, US-CATALOG-004, US-CATALOG-005  
-- **Screen IDs:** TBD (Batch Detail, End User Product List)  
-- **Preconditions:** Products P1/P2 exist and linked to category 10; batch 5002 created with status `PENDING_REVIEW`.  
-- **Test data:** Batch 5002 with items P1/P2, missing QC approval.  
-- **Steps:**  
+- Priority: P0  
+- Story IDs: US-CATALOG-003, US-CATALOG-004, US-CATALOG-005  
+- Screen IDs: TBD (Batch Detail, End User Product List)  
+- Preconditions: Products P1/P2 exist and linked to category 10; batch 5002 created with status `PENDING_REVIEW`.  
+- Test data: Batch 5002 with items P1/P2, missing QC approval.  
+- Steps:  
   1. QC `PATCH /api/v1/catalog/batches/{id}/status` to `REJECTED`.  
   2. End User `GET /api/v1/catalog/products?categoryId=10`.  
   3. End User `GET /api/v1/catalog/products/{productId}/stock` for P1.  
@@ -58,12 +60,12 @@
 - **Notes:** Confirms BR-CATALOG-003 and BR-CATALOG-004.
 
 ### E2E-CATALOG-003 — Product deactivation hides from public catalog
-- **Priority:** P1  
-- **Story IDs:** US-CATALOG-001, US-CATALOG-004  
-- **Screen IDs:** TBD (Admin Product Detail, End User Product List)  
-- **Preconditions:** Product P1 exists, active, has approved stock from batch 5001.  
-- **Test data:** P1 `isActive` toggle.  
-- **Steps:**  
+- Priority: P1  
+- Story IDs: US-CATALOG-001, US-CATALOG-004  
+- Screen IDs: TBD (Admin Product Detail, End User Product List)  
+- Preconditions: Product P1 exists, active, has approved stock from batch 5001.  
+- Test data: P1 `isActive` toggle.  
+- Steps:  
   1. Admin `PATCH /api/v1/catalog/admin/products/{id}` set `isActive=false`.  
   2. Admin `GET /api/v1/catalog/admin/products/{id}` to confirm status.  
   3. End User `GET /api/v1/catalog/products?searchText=MI%20TOM`.  
@@ -157,13 +159,13 @@
 - Story IDs: US-CATALOG-003  
 - Screen IDs: TBD  
 - Preconditions: Products from different categories available.  
-- Test data: Items [{productId:1001, quantityImported:100}, {productId:9999 (category !=10), quantityImported:50}].  
+- Test data: Items `[{productId:1001, quantityImported:100}, {productId:2001, quantityImported:50}]` where productId 2001 is P3 (`NUOC-500`, categoryId 20/`DRINK-WATER`).  
 - Steps: `POST /api/v1/catalog/batches` mixing categories.  
 - Expected: 400/409 `DefaultError`, code `CATALOG_BATCH_INVALID_CATEGORY_MIX`; batch not created.  
 - Evidence: Error payload + correlationId.  
 - Notes: Negative; BR-CATALOG-001.
 
-### IT-CATALOG-009 — Approve batch without required documents blocked (Blocked by requirement)
+### IT-CATALOG-009 — Approve batch without required documents (BLOCKED - requirement TBD)
 - Priority: P0  
 - Story IDs: US-CATALOG-003  
 - Screen IDs: TBD  
@@ -259,11 +261,11 @@
 - Story IDs: US-CATALOG-001, US-CATALOG-004  
 - Screen IDs: TBD  
 - Preconditions: Products exist.  
-- Test data: `searchText="\" OR 1=1; DROP TABLE catalog_product;--"`  
-- Steps: Call `GET /api/v1/catalog/admin/products` and public `GET /api/v1/catalog/products` with malicious searchText.  
+- Test data (security test-only; send URL-encoded): `searchText=%22%20OR%201%3D1%3B%20DROP%20TABLE%20catalog_product%3B--`  
+- Steps: Call `GET /api/v1/catalog/admin/products` and public `GET /api/v1/catalog/products` with the payload URL-encoded as a query parameter.  
 - Expected: 200/400 with safe handling; no server error; no unexpected records; correlationId present.  
 - Evidence: Responses + logs (no stack trace/PII).  
-- Notes: Input sanitization.
+- Notes: Input sanitization; payload is test-only, must be URL-encoded, and system must treat it strictly as user input (never executed).
 
 ### SEC-CATALOG-004 — Expired/invalid token on batch status change
 - Priority: P0  
