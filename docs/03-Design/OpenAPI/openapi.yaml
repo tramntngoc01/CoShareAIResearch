@@ -1,0 +1,5161 @@
+openapi: 3.0.3
+info:
+  title: Project API
+  version: 0.1.0
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: https://staging-api.example.com
+    description: Staging
+
+tags:
+  - name: AUTH
+  - name: USERS
+  - name: CATALOG
+  - name: ORDERS
+  - name: PAYMENTS
+  - name: NOTIFICATIONS
+  - name: ADMIN
+  - name: REPORTING
+
+paths:
+  /api/v1/health:
+    get:
+      summary: Health check
+      tags: [ADMIN]
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/auth/login:
+    post:
+      summary: Admin login (Admin Portal)
+      description: Authenticate an Admin Portal user using username (email/phone) and password.
+      tags:
+        - AUTH
+      operationId: Auth_AdminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Admin tokens issued
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/auth/end-user/register/request-otp:
+    post:
+      summary: Start end-user registration (request OTP)
+      description: >
+        Starts registration for an end user by validating input and sending an OTP via NOTIFICATIONS.
+        Rate limited per phone number.
+      tags:
+        - AUTH
+      operationId: Auth_EndUserRegister_RequestOtp
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndUserRegisterStartRequest'
+      responses:
+        '202':
+          description: OTP requested successfully
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/auth/end-user/register/verify-otp:
+    post:
+      summary: Verify OTP and complete end-user registration
+      description: >
+        Verifies the OTP for the given phone number and, on success, creates the end-user account and issues tokens.
+      tags:
+        - AUTH
+      operationId: Auth_EndUserRegister_VerifyOtp
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndUserRegisterVerifyRequest'
+      responses:
+        '200':
+          description: End-user registered and tokens issued
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/auth/end-user/login/request-otp:
+    post:
+      summary: Start first-time end-user login (request OTP)
+      description: >
+        For an existing end user, validate the phone number and trigger an OTP via NOTIFICATIONS for first-time login.
+      tags:
+        - AUTH
+      operationId: Auth_EndUserLogin_RequestOtp
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndUserLoginStartRequest'
+      responses:
+        '202':
+          description: OTP requested successfully
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/auth/end-user/login/verify-otp:
+    post:
+      summary: Verify OTP and complete first-time end-user login
+      description: >
+        Verifies the OTP for an existing end user and issues tokens for the device/browser.
+      tags:
+        - AUTH
+      operationId: Auth_EndUserLogin_VerifyOtp
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndUserLoginVerifyRequest'
+      responses:
+        '200':
+          description: End-user logged in and tokens issued
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout current session
+      description: >
+        Revokes the current access/refresh tokens for the authenticated principal on this device/browser.
+      tags:
+        - AUTH
+      operationId: Auth_Logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Logged out successfully (idempotent)
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [AUTH]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: New tokens
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users/import:
+    post:
+      summary: Import users from HR file
+      description: >
+        Admin uploads an HR-provided file (CSV/Excel) containing users and their organizational context.
+        The system validates basic file constraints and enqueues an asynchronous import job.
+      tags:
+        - USERS
+      operationId: Users_ImportFromFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: HR file in the agreed CSV/Excel format.
+                source:
+                  type: string
+                  description: Optional HR source identifier.
+              required:
+                - file
+      responses:
+        '202':
+          description: Import job accepted
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersImportJobCreated'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '413':
+          $ref: '#/components/responses/DefaultError'
+        '429':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users/import/{importId}:
+    get:
+      summary: Get import job result
+      description: Returns summary statistics and error samples for a completed or in-progress import job.
+      tags:
+        - USERS
+      operationId: Users_GetImportResult
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Import job summary
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersImportJobResult'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users:
+    get:
+      summary: Search and list users
+      description: >
+        Returns a paged list of users filtered by company, tier, status, employee code, and/or phone number.
+      tags:
+        - USERS
+      operationId: Users_Search
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: pickupPointId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: tier
+          in: query
+          schema:
+            type: string
+            description: Tier of the user (e.g. T1, T2, T3, SHIPPER).
+        - name: status
+          in: query
+          schema:
+            type: string
+            description: Current logical status of the user.
+        - name: employeeCode
+          in: query
+          schema:
+            type: string
+        - name: phone
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of users
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserSummary'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users/{id}:
+    get:
+      summary: Get user detail
+      description: Returns detailed profile information for a user for admin/ops scenarios.
+      tags:
+        - USERS
+      operationId: Users_GetById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: User detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users/{id}/kyc:
+    patch:
+      summary: Update user KYC/profile (admin)
+      description: >
+        Allows an authorized admin to update permitted KYC/profile fields for a user.
+        Company-owned fields remain immutable from this API.
+      tags:
+        - USERS
+      operationId: Users_UpdateKyc_Admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserKycUpdateRequest'
+      responses:
+        '200':
+          description: KYC/profile updated
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users/{id}/status:
+    patch:
+      summary: Change user status
+      description: Changes the logical status of a user (Active/Inactive/Locked) with audit reason.
+      tags:
+        - USERS
+      operationId: Users_ChangeStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserStatusChangeRequest'
+      responses:
+        '200':
+          description: Status changed
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/users/{id}/ref-tier:
+    get:
+      summary: Get user ref tier
+      description: Returns the current tier and parent referral information for a user.
+      tags:
+        - USERS
+      operationId: Users_GetRefTier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current ref tier information
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRefTierInfo'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    put:
+      summary: Change user ref tier
+      description: >
+        Allows Super Admin to change the parent ref tier for a user, recording full history and enforcing tier rules.
+      tags:
+        - USERS
+      operationId: Users_ChangeRefTier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRefTierChangeRequest'
+      responses:
+        '200':
+          description: Ref tier changed
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRefTierInfo'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/admin/products:
+    get:
+      summary: Search and list products (Admin)
+      description: >
+        Returns a paged list of products for admin management, with filters on category, supplier, status, and text search.
+      tags:
+        - CATALOG
+      operationId: Catalog_AdminSearchProducts
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: supplierId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: status
+          in: query
+          schema:
+            type: string
+            description: Product status (e.g. Active/Inactive).
+        - name: searchText
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of products (admin view)
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CatalogProductAdminSummary'
+
+    post:
+      summary: Create product (Admin)
+      description: Creates a new product with basic information and associations to category and supplier.
+      tags:
+        - CATALOG
+      operationId: Catalog_CreateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProductAdminRequest'
+      responses:
+        '201':
+          description: Product created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductAdminDetail'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/admin/products/{id}:
+    get:
+      summary: Get product detail (Admin)
+      tags:
+        - CATALOG
+      operationId: Catalog_GetProductAdminById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Product admin detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductAdminDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    patch:
+      summary: Update product (Admin)
+      description: >
+        Updates editable fields of a product. Some fields such as the primary product code may be immutable based on business rules.
+      tags:
+        - CATALOG
+      operationId: Catalog_UpdateProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProductAdminUpdateRequest'
+      responses:
+        '200':
+          description: Product updated
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductAdminDetail'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/categories:
+    get:
+      summary: List categories (Admin)
+      tags:
+        - CATALOG
+      operationId: Catalog_ListCategories
+      responses:
+        '200':
+          description: List of categories
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatalogCategory'
+
+    post:
+      summary: Create category (Admin)
+      tags:
+        - CATALOG
+      operationId: Catalog_CreateCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogCategoryRequest'
+      responses:
+        '201':
+          description: Category created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogCategory'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/categories/{id}:
+    patch:
+      summary: Update category (Admin)
+      tags:
+        - CATALOG
+      operationId: Catalog_UpdateCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogCategoryUpdateRequest'
+      responses:
+        '200':
+          description: Category updated
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogCategory'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/batches:
+    get:
+      summary: List batches (Admin/QC)
+      tags:
+        - CATALOG
+      operationId: Catalog_ListBatches
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: supplierId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Paged list of batches
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CatalogBatchSummary'
+
+    post:
+      summary: Create batch (Admin/QC)
+      description: Creates a new batch for a single category with multiple products and quantities.
+      tags:
+        - CATALOG
+      operationId: Catalog_CreateBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogBatchCreateRequest'
+      responses:
+        '201':
+          description: Batch created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogBatchDetail'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/batches/{id}:
+    get:
+      summary: Get batch detail (Admin/QC)
+      tags:
+        - CATALOG
+      operationId: Catalog_GetBatchById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Batch detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogBatchDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/batches/{id}/status:
+    patch:
+      summary: Change batch status (QC)
+      description: Changes the status of a batch (e.g. PENDING_REVIEW → APPROVED/REJECTED) applying stock rules.
+      tags:
+        - CATALOG
+      operationId: Catalog_ChangeBatchStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogBatchStatusChangeRequest'
+      responses:
+        '200':
+          description: Batch status changed
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogBatchDetail'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/products:
+    get:
+      summary: List products for End User
+      description: >
+        Returns a paged list of sellable products for End Users, limited to approved batches and positive available stock per business policy.
+      tags:
+        - CATALOG
+      operationId: Catalog_ListProductsForEndUser
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: searchText
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of products for End User
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CatalogProductPublicSummary'
+
+  /api/v1/catalog/products/{id}:
+    get:
+      summary: Get product detail for End User
+      tags:
+        - CATALOG
+      operationId: Catalog_GetProductPublicById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Product detail for End User
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductPublicDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/catalog/products/{id}/stock:
+    get:
+      summary: Get available stock for product
+      description: Returns the current available quantity for a product for use by ORDERS.
+      tags:
+        - CATALOG
+      operationId: Catalog_GetProductStock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Available stock information
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAvailableStock'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders:
+    post:
+      summary: Create order from cart (End User)
+      description: |
+        Creates a new order from the End User's selected products.
+        - Validates that all products are sellable and have sufficient available stock (via CATALOG).
+        - Validates payment method and limits with PAYMENTS (e.g. COD vs deferred payment).
+        - Reserves stock and initializes the order in an initial status (e.g. PENDING_CONFIRMATION or PENDING_PAYMENT).
+
+        This endpoint is idempotent per `Idempotency-Key` header to avoid duplicate orders on client retries.
+      tags:
+        - ORDERS
+      operationId: Orders_CreateOrder
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+      responses:
+        '201':
+          description: Order created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          description: Validation or business rule error (e.g. cart empty, insufficient stock, invalid pickup point, payment limit exceeded).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          description: Conflict, such as duplicate order creation or stock conflict.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List orders for Ops/Shipper (Admin context)
+      description: |
+        Returns a paged list of orders for Ops/Shipper/Admin usage.
+        - Results are scoped by the caller's permissions (e.g. company, pickup point, assignment).
+        - Supports filtering by status and pickup point.
+      tags:
+        - ORDERS
+      operationId: Orders_ListOrders
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: pickupPointId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Paged list of orders
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderSummary'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/my:
+    get:
+      summary: List orders of current End User
+      description: |
+        Returns a paged list of orders that belong to the currently authenticated End User.
+        - Always scoped to the caller's userId.
+        - Supports optional filtering by status.
+      tags:
+        - ORDERS
+      operationId: Orders_ListMyOrders
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of orders for the current user
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MyOrderSummary'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/{id}:
+    get:
+      summary: Get order detail
+      description: |
+        Returns full detail of an order, including items and status history.
+        - End Users can only access their own orders.
+        - Admin/Ops/Shipper roles can access orders within their authorized scope.
+      tags:
+        - ORDERS
+      operationId: Orders_GetOrderById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/{id}/status:
+    patch:
+      summary: Update order status (Ops/Shipper)
+      description: |
+        Changes the status of an order according to the allowed state machine
+        (e.g. PENDING_CONFIRMATION → CONFIRMED → IN_DELIVERY → READY_FOR_PICKUP → COMPLETED).
+
+        Does **not** handle cancel or return flows; those use dedicated endpoints.
+      tags:
+        - ORDERS
+      operationId: Orders_UpdateStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusUpdateRequest'
+      responses:
+        '200':
+          description: Order status updated
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          description: Invalid status transition or order in a frozen state (e.g. pending cancellation).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/{id}/cancel-request:
+    post:
+      summary: Create cancel request (Ops)
+      description: |
+        Creates a cancel request for an order that is in a cancellable status.
+        - Moves the order into a "CANCELLATION_PENDING"-like status.
+        - Only one active cancel request is allowed per order.
+
+        Recommended to send `Idempotency-Key` to avoid duplicate requests on retries.
+      tags:
+        - ORDERS
+      operationId: Orders_CreateCancelRequest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCancelRequestCreate'
+      responses:
+        '201':
+          description: Cancel request created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCancelRequest'
+        '400':
+          description: Order not in a cancellable status or validation error.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          description: Cancel request already exists for this order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders/cancel-requests:
+    get:
+      summary: List cancel requests (Super Admin)
+      description: |
+        Returns a paged list of cancel requests for review by Super Admin.
+        - Typically filtered to pending requests.
+      tags:
+        - ORDERS
+      operationId: Orders_ListCancelRequests
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of cancel requests
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderCancelRequest'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/{id}/cancel-request/decision:
+    post:
+      summary: Approve or reject cancel request (Super Admin)
+      description: |
+        Approves or rejects an existing cancel request for an order.
+        - On approval, the order is moved to a final cancelled status and downstream modules (CATALOG, PAYMENTS) are notified.
+        - On rejection, the order returns to its previous status.
+
+        Recommended to send `Idempotency-Key` to avoid conflicting duplicate decisions.
+      tags:
+        - ORDERS
+      operationId: Orders_DecideCancelRequest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCancelDecisionRequest'
+      responses:
+        '200':
+          description: Cancel request decision applied; order status updated.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          description: Invalid decision (e.g. no active cancel request, order already finalized).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/{id}/delivery-proof:
+    post:
+      summary: Record delivery proof (POD) and complete order
+      description: |
+        Records proof of delivery (POD) for an order and, if business rules allow, transitions the order to a "COMPLETED/DELIVERED" state.
+        - Typically called by Shipper at the pickup point when the End User receives goods and COD (if any) is collected.
+
+        Recommended to send `Idempotency-Key` to avoid duplicate POD records.
+      tags:
+        - ORDERS
+      operationId: Orders_RecordDeliveryProof
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderDeliveryProofRequest'
+      responses:
+        '200':
+          description: Delivery proof recorded and order status updated.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          description: Validation error (e.g. POD missing when required, order not in a receivable status).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/orders/{id}/returns:
+    post:
+      summary: Create return/exchange request at pickup point
+      description: |
+        Records a return/exchange request for an order or specific items within the order.
+        - Typically initiated by Shipper or support staff at the pickup point.
+        - Downstream stock and payment adjustments are handled by CATALOG/PAYMENTS.
+      tags:
+        - ORDERS
+      operationId: Orders_CreateReturnRequest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderReturnRequestCreate'
+      responses:
+        '201':
+          description: Return request recorded
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderReturnRequest'
+        '400':
+          description: Validation or business rule error (e.g. return not allowed for current status).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/receipts:
+    post:
+      summary: Create COD receipt for order (Shipper)
+      description: |
+        Creates a COD receipt for an order when Shipper collects cash from the End User.
+        - Links the receipt to the order and the current shift.
+        - Updates the payment status for the order when amounts match business rules.
+
+        This endpoint should use `Idempotency-Key` to avoid duplicate receipts on retries.
+      tags:
+        - PAYMENTS
+      operationId: Payments_CreateReceipt
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentReceiptCreateRequest'
+      responses:
+        '201':
+          description: COD receipt created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentReceipt'
+        '400':
+          description: Validation or business rule error (e.g. amount mismatch, order not eligible for COD receipt).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+        '409':
+          description: Receipt already exists for this order (idempotent conflict).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments/shifts/my-open:
+    get:
+      summary: Get current open COD shift for Shipper
+      description: |
+        Returns summary information for the current open COD shift for the authenticated Shipper,
+        including expected and collected COD amounts.
+      tags:
+        - PAYMENTS
+      operationId: Payments_GetMyOpenShift
+      responses:
+        '200':
+          description: Current open shift summary (or a placeholder if none)
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentShiftDetail'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/shifts/my-open/close:
+    post:
+      summary: Close current COD shift (Shipper)
+      description: |
+        Closes the current open COD shift for the authenticated Shipper, computing collected COD,
+        expected COD, and the difference, and preventing further receipt edits within that shift.
+
+        This endpoint should use `Idempotency-Key` to avoid double-closing the same shift.
+      tags:
+        - PAYMENTS
+      operationId: Payments_CloseMyOpenShift
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+      responses:
+        '200':
+          description: Shift closed
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentShiftDetail'
+        '400':
+          description: No open shift to close or invalid shift state.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/shifts:
+    get:
+      summary: List closed COD shifts (Finance)
+      description: |
+        Returns a paged list of COD shifts for Finance to review and reconcile.
+        - Typically filtered by status (e.g. CLOSED, RECONCILED, DIFFERENCE) and/or Shipper.
+      tags:
+        - PAYMENTS
+      operationId: Payments_ListShifts
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: shipperId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of shifts
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PaymentShiftSummary'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/shifts/{id}:
+    get:
+      summary: Get COD shift detail (Finance)
+      description: Returns detailed data for a specific COD shift, including totals and reconciliation status.
+      tags:
+        - PAYMENTS
+      operationId: Payments_GetShiftById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Shift detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentShiftDetail'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/shifts/{id}/reconcile:
+    post:
+      summary: Reconcile COD shift (Finance)
+      description: |
+        Marks a COD shift as reconciled or in a difference state, with an audit note.
+
+        This endpoint should use `Idempotency-Key` to avoid double-processing reconciliation decisions.
+      tags:
+        - PAYMENTS
+      operationId: Payments_ReconcileShift
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentShiftReconcileRequest'
+      responses:
+        '200':
+          description: Reconciliation result saved
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentShiftDetail'
+        '400':
+          description: Invalid reconciliation state or shift not in a reconcilable status.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/credit/check:
+    post:
+      summary: Check deferred payment credit limit for an order
+      description: |
+        Checks whether a new deferred payment (trả chậm) order is allowed for a user,
+        based on configured credit limits and current debt.
+
+        This endpoint is typically called by ORDERS before creating a deferred payment order.
+      tags:
+        - PAYMENTS
+      operationId: Payments_CheckCredit
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCreditCheckRequest'
+      responses:
+        '200':
+          description: Credit check result
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCreditCheckResponse'
+        '400':
+          description: Validation error (e.g. user not eligible for credit).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/credit-limits/{userId}:
+    get:
+      summary: Get credit limit for user (Finance)
+      tags:
+        - PAYMENTS
+      operationId: Payments_GetCreditLimit
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Credit limit for user
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCreditLimit'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    put:
+      summary: Set or update credit limit for user (Finance)
+      tags:
+        - PAYMENTS
+      operationId: Payments_UpsertCreditLimit
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCreditLimitUpdateRequest'
+      responses:
+        '200':
+          description: Credit limit updated
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCreditLimit'
+        '400':
+          description: Validation error (e.g. negative limit or invalid dates).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/payments/debts/{userId}:
+    get:
+      summary: Get debt balance for user (Finance)
+      tags:
+        - PAYMENTS
+      operationId: Payments_GetDebtBalance
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Debt balance for user
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentDebtBalance'
+        '401':
+          $ref: '#/components/responses/DefaultError'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/notifications/templates:
+    get:
+      summary: List notification templates (Admin)
+      description: |
+        Returns a paged list of ZNS notification templates used for OTP and business notifications.
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_ListTemplates
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: type
+          in: query
+          schema:
+            type: string
+            description: Template type (e.g. OTP, PICKUP_REMINDER, DEBT_REMINDER, COMMISSION_CHANGE).
+        - name: status
+          in: query
+          schema:
+            type: string
+            description: Template status (ACTIVE/INACTIVE).
+      responses:
+        '200':
+          description: Paged list of templates
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationTemplateSummary'
+
+    post:
+      summary: Create notification template (Admin)
+      description: Creates a new ZNS notification template for OTP or business notifications.
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_CreateTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationTemplateCreateRequest'
+      responses:
+        '201':
+          description: Template created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplateDetail'
+        '400':
+          description: Validation error (e.g. invalid placeholders).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Template code already exists and is ACTIVE (`NOTIFICATIONS_TEMPLATE_CODE_DUPLICATE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/notifications/templates/{id}:
+    get:
+      summary: Get notification template detail (Admin)
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_GetTemplateById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Template detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplateDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    patch:
+      summary: Update notification template (Admin)
+      description: |
+        Updates mutable fields of a ZNS template (e.g. description, body, status).
+        Placeholder validation is enforced and all changes are audited.
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_UpdateTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationTemplateUpdateRequest'
+      responses:
+        '200':
+          description: Updated template
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplateDetail'
+        '400':
+          description: Validation error (e.g. invalid placeholders).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/notifications/otp/send:
+    post:
+      summary: Send OTP ZNS (called by AUTH)
+      description: |
+        Sends an OTP ZNS message to a phone number using a configured OTP template.
+        - Called by AUTH during registration/login OTP flows.
+        - Applies basic validation and rate limiting.
+
+        **Rate limiting:** On excessive OTP sends per phone number, returns 429 with error code `NOTIFICATIONS_OTP_RATE_LIMITED`.
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_SendOtp
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSendOtpRequest'
+      responses:
+        '200':
+          description: OTP send result
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSendResult'
+        '400':
+          description: Validation error (e.g. invalid phone number, missing fields).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Template not found or inactive (`NOTIFICATIONS_TEMPLATE_INACTIVE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: OTP send rate limit exceeded (`NOTIFICATIONS_OTP_RATE_LIMITED`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/notifications/events/send:
+    post:
+      summary: Send business notification ZNS based on event
+      description: |
+        Sends transactional ZNS notifications (e.g. order ready for pickup, debt due reminders) based on a business event.
+        - Called by ORDERS, PAYMENTS, or ADMIN/REPORTING modules.
+        - Maps `eventType` to a configured template and applies company-level notification config.
+
+        **Rate limiting:** May return 429 with error code `NOTIFICATIONS_EVENT_RATE_LIMITED` when per-user/event thresholds are exceeded.
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_SendEventNotification
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSendEventRequest'
+      responses:
+        '200':
+          description: Event notification send result
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSendResult'
+        '400':
+          description: Validation error (e.g. missing payload fields).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Template not configured for this event or company (`NOTIFICATIONS_EVENT_TEMPLATE_NOT_CONFIGURED`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Notification suppressed due to company config (group disabled) (`NOTIFICATIONS_GROUP_DISABLED`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Event notification rate limit exceeded (`NOTIFICATIONS_EVENT_RATE_LIMITED`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/notifications/logs:
+    get:
+      summary: Search notification send logs (Admin/Support)
+      description: |
+        Returns a paged list of notification send logs for troubleshooting.
+        - Supports filters by correlationId, status, template/event type and date range.
+        - Phone numbers are always masked in responses.
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_SearchLogs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: correlationId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: templateCode
+          in: query
+          schema:
+            type: string
+        - name: eventType
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Paged list of notification logs
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationLogEntry'
+
+  /api/v1/notifications/config/companies/{companyId}:
+    get:
+      summary: Get notification config for company
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_GetCompanyConfig
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Notification config for company
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationConfig'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    put:
+      summary: Set notification config for company
+      description: |
+        Updates per-company notification configuration for ZNS groups
+        (OTP, pickup reminders, debt reminders, commission change notifications).
+      tags:
+        - NOTIFICATIONS
+      operationId: Notifications_UpsertCompanyConfig
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationConfigUpdateRequest'
+      responses:
+        '200':
+          description: Updated notification config
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationConfig'
+        '400':
+          description: Validation error (e.g. inconsistent defaults).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/companies:
+    get:
+      summary: List companies (Admin)
+      description: Returns a paged list of companies for configuration and reporting scoping.
+      tags:
+        - ADMIN
+      operationId: Admin_ListCompanies
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: zone
+          in: query
+          schema:
+            type: string
+        - name: searchText
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of companies
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminCompanySummary'
+
+    post:
+      summary: Create company (Admin)
+      description: Creates a new company record used across USERS, ORDERS, PAYMENTS, and REPORTING.
+      tags:
+        - ADMIN
+      operationId: Admin_CreateCompany
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCompanyCreateRequest'
+      responses:
+        '201':
+          description: Company created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCompanyDetail'
+        '400':
+          description: Validation error for company data.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Company code already exists (`ADMIN_COMPANY_CODE_DUPLICATE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/companies/{id}:
+    get:
+      summary: Get company detail (Admin)
+      tags:
+        - ADMIN
+      operationId: Admin_GetCompanyById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Company detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCompanyDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    patch:
+      summary: Update company (Admin)
+      description: Updates mutable company fields; cannot hard-delete companies in use.
+      tags:
+        - ADMIN
+      operationId: Admin_UpdateCompany
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCompanyUpdateRequest'
+      responses:
+        '200':
+          description: Updated company
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCompanyDetail'
+        '400':
+          description: Validation error or attempt to deactivate company with active references (`ADMIN_COMPANY_IN_USE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/admin/companies/{companyId}/pickup-points:
+    get:
+      summary: List pickup points for company (Admin)
+      tags:
+        - ADMIN
+      operationId: Admin_ListPickupPoints
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of pickup points for the company
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminPickupPointDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    post:
+      summary: Create pickup point for company (Admin)
+      tags:
+        - ADMIN
+      operationId: Admin_CreatePickupPoint
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPickupPointCreateRequest'
+      responses:
+        '201':
+          description: Pickup point created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPickupPointDetail'
+        '400':
+          description: Validation error for pickup point data.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/admin/companies/{companyId}/pickup-points/{id}:
+    get:
+      summary: Get pickup point detail (Admin)
+      tags:
+        - ADMIN
+      operationId: Admin_GetPickupPointById
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Pickup point detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPickupPointDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    patch:
+      summary: Update pickup point (Admin)
+      description: Updates pickup point fields and default flag; enforces single default per company.
+      tags:
+        - ADMIN
+      operationId: Admin_UpdatePickupPoint
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPickupPointUpdateRequest'
+      responses:
+        '200':
+          description: Updated pickup point
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPickupPointDetail'
+        '400':
+          description: Validation error or attempt to deactivate pickup point in use (`ADMIN_PICKUPPOINT_IN_USE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/admin/roles:
+    get:
+      summary: List admin roles
+      tags:
+        - ADMIN
+      operationId: Admin_ListRoles
+      responses:
+        '200':
+          description: List of roles
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminRole'
+
+    post:
+      summary: Create admin role
+      description: Creates a new admin role (for future extensibility beyond base roles).
+      tags:
+        - ADMIN
+      operationId: Admin_CreateRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRoleCreateRequest'
+      responses:
+        '201':
+          description: Role created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRole'
+        '400':
+          description: Validation error for role data.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Role code already exists (`ADMIN_ROLE_CODE_DUPLICATE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/roles/{id}:
+    get:
+      summary: Get admin role detail
+      tags:
+        - ADMIN
+      operationId: Admin_GetRoleById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Role detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRole'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    patch:
+      summary: Update admin role
+      tags:
+        - ADMIN
+      operationId: Admin_UpdateRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRoleUpdateRequest'
+      responses:
+        '200':
+          description: Updated role
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRole'
+        '400':
+          description: Validation error for role data.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/admin/admin-users:
+    get:
+      summary: List admin users
+      tags:
+        - ADMIN
+      operationId: Admin_ListAdminUsers
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: roleCode
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: searchText
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of admin users
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminUserSummary'
+
+    post:
+      summary: Create admin user and assign roles
+      description: |
+        Creates a new admin user profile and links it to an AUTH admin account (loginId), assigning at least one role.
+        Underlying AUTH password setup/reset flows are handled in AUTH.
+      tags:
+        - ADMIN
+      operationId: Admin_CreateAdminUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserCreateRequest'
+      responses:
+        '201':
+          description: Admin user created
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetail'
+        '400':
+          description: Validation error or missing roles (`ADMIN_ADMINUSER_ROLE_EMPTY`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Admin loginId already exists (`ADMIN_ADMINUSER_LOGIN_DUPLICATE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/admin-users/{id}:
+    get:
+      summary: Get admin user detail
+      tags:
+        - ADMIN
+      operationId: Admin_GetAdminUserById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Admin user detail
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetail'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+    patch:
+      summary: Update admin user roles and status
+      tags:
+        - ADMIN
+      operationId: Admin_UpdateAdminUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserUpdateRequest'
+      responses:
+        '200':
+          description: Updated admin user
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetail'
+        '400':
+          description: Validation error or missing roles (`ADMIN_ADMINUSER_ROLE_EMPTY`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/admin/system-config:
+    get:
+      summary: Get system configuration
+      tags:
+        - ADMIN
+      operationId: Admin_GetSystemConfig
+      responses:
+        '200':
+          description: System configuration
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSystemConfig'
+
+    put:
+      summary: Update system configuration
+      description: Updates logo, system name, legal info, and terms links.
+      tags:
+        - ADMIN
+      operationId: Admin_UpdateSystemConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSystemConfigUpdateRequest'
+      responses:
+        '200':
+          description: Updated system configuration
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSystemConfig'
+        '400':
+          description: Validation error for configuration fields.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/audit-logs:
+    get:
+      summary: Search audit logs
+      description: |
+        Returns a paged list of audit log entries for sensitive actions across modules.
+        - Filters by time range, module, actionType, actor, correlationId.
+
+        **Rate limiting / protection:** Large time ranges may be rejected with 400 using error code `ADMIN_AUDITLOG_RANGE_TOO_WIDE`.
+      tags:
+        - ADMIN
+      operationId: Admin_SearchAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: module
+          in: query
+          schema:
+            type: string
+        - name: actionType
+          in: query
+          schema:
+            type: string
+        - name: actorType
+          in: query
+          schema:
+            type: string
+        - name: actorId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: correlationId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of audit log entries
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminAuditLogEntry'
+        '400':
+          description: Invalid filter or time range too wide (`ADMIN_AUDITLOG_RANGE_TOO_WIDE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/reporting/sales/company:
+    get:
+      summary: Get sales summary by time and company
+      description: |
+        Returns aggregated sales metrics (orders, revenue, items) over a time range, filtered by company and optional pickup point/category.
+
+        **Rate limiting / protection:** Very wide time ranges may be rejected with 400 using error code `REPORTING_RANGE_TOO_WIDE`.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetSalesByCompany
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: fromDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: companyId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: pickupPointId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: groupBy
+          in: query
+          schema:
+            type: string
+            description: Aggregation granularity (e.g. DAY, WEEK, MONTH).
+      responses:
+        '200':
+          description: Paged list of sales summary rows
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReportingSalesSummaryRow'
+        '400':
+          description: Invalid filter, date range, or time window too wide (`REPORTING_INVALID_DATE_RANGE`, `REPORTING_RANGE_TOO_WIDE`).
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/commissions/t2:
+    get:
+      summary: Get commission report for Tier 2
+      description: |
+        Returns aggregated commission metrics per Tier 2 user over a commission period.
+
+        Exact commission period definition (month/week/other) is governed by PAYMENTS business rules.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetCommissionsT2
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: periodStart
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: periodEnd
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            description: Optional filter for a specific Tier 2 user.
+      responses:
+        '200':
+          description: Paged list of Tier 2 commission rows
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReportingCommissionT2Row'
+        '400':
+          description: Invalid period or filters.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/cod/shifts:
+    get:
+      summary: Get COD & reconciliation report by shift
+      description: |
+        Returns COD expected, collected, and difference per payment shift, filtered by time range and optional company/shipper.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetCodByShift
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: fromDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: shipperId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: reconciliationStatus
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged list of shifts with COD metrics
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PaymentShiftSummary'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/debts/companies:
+    get:
+      summary: Get debt report by company
+      description: |
+        Returns debt balances (total, in-term, overdue) per company as of a specific date, based on PAYMENTS debt balances.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetDebtsByCompany
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: asOfDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Paged list of company-level debt rows
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReportingDebtCompanyRow'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/debts/companies/{companyId}/users:
+    get:
+      summary: Get debt report by user for a company
+      description: |
+        Returns user-level debt balances for a given company as of a specific date, subject to RBAC.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetDebtsByUser
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: asOfDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Paged list of user-level debt rows
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResult'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReportingDebtUserRow'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/dashboard/orders-today:
+    get:
+      summary: Get Dashboard KPIs for orders today
+      description: |
+        Returns total orders today and received rate for Dashboard widget.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetDashboardOrdersToday
+      parameters:
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: KPI for orders today
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingDashboardOrdersToday'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/dashboard/cod-open:
+    get:
+      summary: Get Dashboard KPI for open COD
+      description: |
+        Returns total COD currently open (not yet reconciled) for Dashboard widget.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetDashboardCodOpen
+      parameters:
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: KPI for open COD
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingDashboardCodOpen'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/dashboard/debt-overdue:
+    get:
+      summary: Get Dashboard KPI for overdue debt
+      description: |
+        Returns total overdue debt for Dashboard widget.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetDashboardDebtOverdue
+      parameters:
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: KPI for overdue debt
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingDashboardDebtOverdue'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+  /api/v1/reporting/dashboard/top-category:
+    get:
+      summary: Get Dashboard KPI for top-selling category
+      description: |
+        Returns the top-selling category for the current day (or recent period) for Dashboard widget.
+      tags:
+        - REPORTING
+      operationId: Reporting_GetDashboardTopCategory
+      parameters:
+        - name: companyId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: KPI for top-selling category
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingDashboardTopCategory'
+        '400':
+          $ref: '#/components/responses/DefaultError'
+        '403':
+          $ref: '#/components/responses/DefaultError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  headers:
+    CorrelationId:
+      description: Correlation id for tracing
+      schema:
+        type: string
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    SortBy:
+      name: sortBy
+      in: query
+      schema:
+        type: string
+    SortDir:
+      name: sortDir
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Idempotency key for safely retrying POST requests with side effects.
+      schema:
+        type: string
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            correlationId:
+              type: string
+      required:
+        - error
+
+    PagedResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+
+    LoginRequest:
+      description: Admin Portal login request (username = email or phone).
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+    CatalogProductAdminSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        productCode:
+          type: string
+        barCode:
+          type: string
+          nullable: true
+        name:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+        categoryName:
+          type: string
+        supplierId:
+          type: integer
+          format: int64
+        supplierName:
+          type: string
+        unit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        status:
+          type: string
+      required:
+        - id
+        - productCode
+        - name
+        - categoryId
+        - supplierId
+        - unit
+        - unitPrice
+        - status
+    CatalogProductAdminDetail:
+      allOf:
+        - $ref: '#/components/schemas/CatalogProductAdminSummary'
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+            isActive:
+              type: boolean
+    CatalogProductAdminRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+        barCode:
+          type: string
+          nullable: true
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+        supplierId:
+          type: integer
+          format: int64
+        unit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        isActive:
+          type: boolean
+      required:
+        - productCode
+        - name
+        - categoryId
+        - supplierId
+        - unit
+        - unitPrice
+    CatalogProductAdminUpdateRequest:
+      type: object
+      description: Fields that can be updated for a product in admin UI.
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        unitPrice:
+          type: number
+          format: decimal
+        isActive:
+          type: boolean
+      additionalProperties: false
+    CatalogCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        categoryCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+      required:
+        - id
+        - categoryCode
+        - name
+        - isActive
+    CatalogCategoryRequest:
+      type: object
+      properties:
+        categoryCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required:
+        - categoryCode
+        - name
+    CatalogCategoryUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+      additionalProperties: false
+    CatalogBatchSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        supplierId:
+          type: integer
+          format: int64
+        supplierName:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+        categoryName:
+          type: string
+        status:
+          type: string
+        importDate:
+          type: string
+          format: date
+      required:
+        - id
+        - supplierId
+        - categoryId
+        - status
+    CatalogBatchDetail:
+      allOf:
+        - $ref: '#/components/schemas/CatalogBatchSummary'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  productId:
+                    type: integer
+                    format: int64
+                  productName:
+                    type: string
+                  quantityImported:
+                    type: integer
+                required:
+                  - productId
+                  - quantityImported
+            documents:
+              type: array
+              items:
+                type: string
+                format: uri
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+    CatalogBatchCreateRequest:
+      type: object
+      properties:
+        supplierId:
+          type: integer
+          format: int64
+        categoryId:
+          type: integer
+          format: int64
+        importDate:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: integer
+                format: int64
+              quantityImported:
+                type: integer
+            required:
+              - productId
+              - quantityImported
+        documents:
+          type: array
+          items:
+            type: string
+            format: uri
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+      required:
+        - supplierId
+        - categoryId
+        - importDate
+        - items
+    CatalogBatchStatusChangeRequest:
+      type: object
+      properties:
+        newStatus:
+          type: string
+          description: Target status, e.g. APPROVED or REJECTED.
+        note:
+          type: string
+      required:
+        - newStatus
+      additionalProperties: false
+    CatalogProductPublicSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        categoryName:
+          type: string
+        price:
+          type: number
+          format: decimal
+        inStock:
+          type: boolean
+      required:
+        - id
+        - name
+        - price
+        - inStock
+    CatalogProductPublicDetail:
+      allOf:
+        - $ref: '#/components/schemas/CatalogProductPublicSummary'
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+    CatalogAvailableStock:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        availableQuantity:
+          type: integer
+      required:
+        - productId
+        - availableQuantity
+    UsersImportJobCreated:
+      type: object
+      properties:
+        importId:
+          type: string
+          format: uuid
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+        - importId
+        - submittedAt
+    UsersImportJobResult:
+      type: object
+      properties:
+        importId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Current processing status of the import job.
+        totalRows:
+          type: integer
+        created:
+          type: integer
+        updated:
+          type: integer
+        failed:
+          type: integer
+        errorSamples:
+          type: array
+          description: Sample of row-level errors; full file may be available via reporting/export.
+          items:
+            type: object
+            properties:
+              rowNumber:
+                type: integer
+              errorCode:
+                type: string
+              message:
+                type: string
+      required:
+        - importId
+        - status
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        phone:
+          type: string
+        employeeCode:
+          type: string
+        companyId:
+          type: integer
+          format: int64
+        companyName:
+          type: string
+        pickupPointId:
+          type: integer
+          format: int64
+        pickupPointName:
+          type: string
+        tier:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - fullName
+        - phone
+        - status
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/UserSummary'
+        - type: object
+          properties:
+            cccdMasked:
+              type: string
+              description: Masked national ID / CCCD per Data-Classification rules.
+            birthDate:
+              type: string
+              format: date
+            email:
+              type: string
+              format: email
+            addressDetail:
+              type: string
+            kycMetadata:
+              type: object
+              additionalProperties:
+                type: string
+              description: Extensible key-value bag for additional KYC fields.
+    UserKycUpdateRequest:
+      type: object
+      description: Fields that an admin is allowed to update for a user's profile/KYC.
+      properties:
+        fullName:
+          type: string
+
+        ReportingSalesSummaryRow:
+          type: object
+          description: Aggregated sales metrics for a company over a period.
+          properties:
+            periodStart:
+              type: string
+              format: date
+            periodEnd:
+              type: string
+              format: date
+            companyId:
+              type: integer
+              format: int64
+            companyName:
+              type: string
+            pickupPointId:
+              type: integer
+              format: int64
+              nullable: true
+            pickupPointName:
+              type: string
+              nullable: true
+            totalOrders:
+              type: integer
+            totalRevenue:
+              type: number
+              format: decimal
+            totalItems:
+              type: integer
+          required:
+            - periodStart
+            - periodEnd
+            - companyId
+            - totalOrders
+            - totalRevenue
+            - totalItems
+
+        ReportingCommissionT2Row:
+          type: object
+          description: Aggregated commission metrics for a Tier 2 user over a period.
+          properties:
+            periodStart:
+              type: string
+              format: date
+            periodEnd:
+              type: string
+              format: date
+            userId:
+              type: integer
+              format: int64
+            fullName:
+              type: string
+            companyId:
+              type: integer
+              format: int64
+              nullable: true
+            totalRevenue:
+              type: number
+              format: decimal
+            commissionRate:
+              type: number
+              format: decimal
+            commissionAmount:
+              type: number
+              format: decimal
+          required:
+            - periodStart
+            - periodEnd
+            - userId
+            - totalRevenue
+            - commissionAmount
+
+        ReportingDebtCompanyRow:
+          type: object
+          description: Debt summary for a company at a given date.
+          properties:
+            asOfDate:
+              type: string
+              format: date
+            companyId:
+              type: integer
+              format: int64
+            companyName:
+              type: string
+            totalDebt:
+              type: number
+              format: decimal
+            inTermDebt:
+              type: number
+              format: decimal
+            overdueDebt:
+              type: number
+              format: decimal
+          required:
+            - asOfDate
+            - companyId
+            - totalDebt
+            - inTermDebt
+            - overdueDebt
+
+        ReportingDebtUserRow:
+          type: object
+          description: User-level debt snapshot for a company.
+          properties:
+            asOfDate:
+              type: string
+              format: date
+            userId:
+              type: integer
+              format: int64
+            fullName:
+              type: string
+            companyId:
+              type: integer
+              format: int64
+            companyName:
+              type: string
+            debtBalance:
+              type: number
+              format: decimal
+            status:
+              type: string
+              description: Debt status at asOfDate (e.g. IN_TERM, OVERDUE, NEGATIVE).
+          required:
+            - asOfDate
+            - userId
+            - companyId
+            - debtBalance
+            - status
+
+        ReportingDashboardOrdersToday:
+          type: object
+          properties:
+            companyId:
+              type: integer
+              format: int64
+              nullable: true
+            totalOrdersToday:
+              type: integer
+            receivedRateToday:
+              type: number
+              format: decimal
+              description: Ratio between 0 and 1.
+          required:
+            - totalOrdersToday
+
+        ReportingDashboardCodOpen:
+          type: object
+          properties:
+            companyId:
+              type: integer
+              format: int64
+              nullable: true
+            totalCodOpen:
+              type: number
+              format: decimal
+          required:
+            - totalCodOpen
+
+        ReportingDashboardDebtOverdue:
+          type: object
+          properties:
+            companyId:
+              type: integer
+              format: int64
+              nullable: true
+            totalDebtOverdue:
+              type: number
+              format: decimal
+          required:
+            - totalDebtOverdue
+
+        ReportingDashboardTopCategory:
+          type: object
+          properties:
+            companyId:
+              type: integer
+              format: int64
+              nullable: true
+            topCategoryName:
+              type: string
+              nullable: true
+            totalRevenue:
+              type: number
+              format: decimal
+              nullable: true
+
+        email:
+          type: string
+          format: email
+        addressDetail:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        kycMetadata:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: false
+    UserStatusChangeRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Target status (e.g. Active, Inactive, Locked).
+        reason:
+          type: string
+      required:
+        - status
+      additionalProperties: false
+    UserRefTierInfo:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        tier:
+          type: string
+        parentUserId:
+          type: integer
+          format: int64
+          nullable: true
+        parentFullName:
+          type: string
+          nullable: true
+        parentTier:
+          type: string
+          nullable: true
+      required:
+        - userId
+        - tier
+    UserRefTierChangeRequest:
+      type: object
+      properties:
+        newParentUserId:
+          type: integer
+          format: int64
+          nullable: true
+        note:
+          type: string
+      required:
+        - newParentUserId
+      additionalProperties: false
+      required:
+        - refreshToken
+
+    LoginResponse:
+      description: Standard auth tokens response for both end-user and admin logins.
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: seconds
+        tokenType:
+          type: string
+          description: Token type for the Authorization header.
+          default: Bearer
+        user:
+          $ref: '#/components/schemas/EndUserProfileSummary'
+        admin:
+          $ref: '#/components/schemas/AdminProfileSummary'
+        roles:
+          type: array
+          description: Roles granted to the authenticated principal.
+          items:
+            type: string
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+
+    EndUserProfileSummary:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        phone:
+          type: string
+        companyId:
+          type: integer
+          format: int64
+        tier:
+          type: integer
+          description: 1/2/3 according to USERS module.
+      required:
+        - userId
+        - fullName
+        - phone
+        - companyId
+        - tier
+
+    AdminProfileSummary:
+      type: object
+      properties:
+        adminUserId:
+          type: integer
+          format: int64
+        loginId:
+          type: string
+      required:
+        - adminUserId
+        - loginId
+
+    DeviceInfo:
+      type: object
+      description: Optional device/browser fingerprint used to bind tokens to a device.
+      properties:
+        deviceId:
+          type: string
+          maxLength: 128
+        userAgent:
+          type: string
+          maxLength: 512
+        platform:
+          type: string
+          maxLength: 128
+
+    EndUserRegisterStartRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          maxLength: 200
+        companyId:
+          type: integer
+          format: int64
+        phone:
+          type: string
+          maxLength: 20
+        acceptTerms:
+          type: boolean
+      required:
+        - fullName
+        - companyId
+        - phone
+        - acceptTerms
+
+    EndUserRegisterVerifyRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 20
+        otpCode:
+          type: string
+          maxLength: 10
+        deviceInfo:
+          $ref: '#/components/schemas/DeviceInfo'
+      required:
+        - phone
+        - otpCode
+
+    EndUserLoginStartRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 20
+      required:
+        - phone
+
+    EndUserLoginVerifyRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 20
+        otpCode:
+          type: string
+          maxLength: 10
+        deviceInfo:
+          $ref: '#/components/schemas/DeviceInfo'
+      required:
+        - phone
+        - otpCode
+
+    OrderItemCreateRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+        - productId
+        - quantity
+
+    OrderCreateRequest:
+      type: object
+      properties:
+        pickupPointId:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+          description: Payment method key as defined by PAYMENTS module (e.g. COD, DEFERRED).
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItemCreateRequest'
+      required:
+        - pickupPointId
+        - paymentMethod
+        - items
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        productName:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+          format: decimal
+        lineAmount:
+          type: number
+          format: decimal
+      required:
+        - productId
+        - quantity
+        - unitPrice
+        - lineAmount
+
+    OrderStatusHistoryEntry:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Business status code (e.g. PENDING_CONFIRMATION, CONFIRMED, IN_DELIVERY, READY_FOR_PICKUP, COMPLETED, CANCELLATION_PENDING, CANCELLED, RETURNED).
+        changedBy:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+      required:
+        - status
+        - changedAt
+
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        companyId:
+          type: integer
+          format: int64
+        pickupPointId:
+          type: integer
+          format: int64
+        status:
+          type: string
+        totalAmount:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - companyId
+        - pickupPointId
+        - status
+        - totalAmount
+        - createdAt
+
+    MyOrderSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+        totalAmount:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+        pickupPointName:
+          type: string
+      required:
+        - id
+        - status
+        - totalAmount
+        - createdAt
+
+    OrderDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        companyId:
+          type: integer
+          format: int64
+        pickupPointId:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+        status:
+          type: string
+        totalAmount:
+          type: number
+          format: decimal
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        statusHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderStatusHistoryEntry'
+      required:
+        - id
+        - userId
+        - companyId
+        - pickupPointId
+        - paymentMethod
+        - status
+        - totalAmount
+
+    OrderStatusUpdateRequest:
+      type: object
+      properties:
+        newStatus:
+          type: string
+          description: Target status code; must follow the allowed state machine.
+        note:
+          type: string
+      required:
+        - newStatus
+      additionalProperties: false
+
+    OrderCancelRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        requestedBy:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        approvedBy:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          description: Cancel request status, e.g. PENDING, APPROVED, REJECTED.
+      required:
+        - id
+        - orderId
+        - requestedBy
+        - requestedAt
+        - status
+
+    OrderCancelRequestCreate:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      additionalProperties: false
+
+    OrderCancelDecisionRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          description: Decision for the cancel request (APPROVE or REJECT).
+        note:
+          type: string
+      required:
+        - decision
+      additionalProperties: false
+
+    OrderDeliveryProofRequest:
+      type: object
+      properties:
+        deliveredAt:
+          type: string
+          format: date-time
+        deliveredBy:
+          type: string
+        podImageUrls:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uri
+        receiverName:
+          type: string
+        note:
+          type: string
+      required:
+        - deliveredAt
+        - deliveredBy
+        - podImageUrls
+
+    OrderReturnItem:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+        - productId
+        - quantity
+
+    OrderReturnRequestCreate:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderReturnItem'
+        reason:
+          type: string
+      required:
+        - items
+        - reason
+      additionalProperties: false
+
+    OrderReturnRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        status:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderReturnItem'
+        reason:
+          type: string
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderId
+        - status
+        - items
+        - reason
+        - createdBy
+        - createdAt
+
+    PaymentReceiptCreateRequest:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: decimal
+        note:
+          type: string
+      required:
+        - orderId
+        - amount
+      additionalProperties: false
+
+    PaymentReceipt:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: decimal
+        collectedBy:
+          type: string
+        collectedAt:
+          type: string
+          format: date-time
+        shiftId:
+          type: integer
+          format: int64
+      required:
+        - id
+        - orderId
+        - amount
+        - collectedBy
+        - collectedAt
+
+    PaymentShiftSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        shipperId:
+          type: integer
+          format: int64
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+        expectedCod:
+          type: number
+          format: decimal
+        collectedCod:
+          type: number
+          format: decimal
+        difference:
+          type: number
+          format: decimal
+      required:
+        - id
+        - shipperId
+        - startTime
+        - status
+
+    PaymentShiftDetail:
+      allOf:
+        - $ref: '#/components/schemas/PaymentShiftSummary'
+        - type: object
+          properties:
+            receiptsCount:
+              type: integer
+            reconciledBy:
+              type: string
+              nullable: true
+            reconciledAt:
+              type: string
+              format: date-time
+              nullable: true
+            reconciliationNote:
+              type: string
+              nullable: true
+
+    PaymentShiftReconcileRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          description: >
+            Target reconciliation status (e.g. RECONCILED or DIFFERENCE).
+        note:
+          type: string
+      required:
+        - status
+      additionalProperties: false
+
+    PaymentCreditCheckRequest:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        companyId:
+          type: integer
+          format: int64
+        orderAmount:
+          type: number
+          format: decimal
+      required:
+        - userId
+        - orderAmount
+      additionalProperties: false
+
+    PaymentCreditCheckResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        creditLimit:
+          type: number
+          format: decimal
+        currentDebt:
+          type: number
+          format: decimal
+        debtAfterOrder:
+          type: number
+          format: decimal
+        failureReasonCode:
+          type: string
+          nullable: true
+      required:
+        - allowed
+        - creditLimit
+        - currentDebt
+        - debtAfterOrder
+
+    PaymentCreditLimit:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        companyId:
+          type: integer
+          format: int64
+          nullable: true
+        limitAmount:
+          type: number
+          format: decimal
+        isActive:
+          type: boolean
+        effectiveFrom:
+          type: string
+          format: date-time
+        effectiveTo:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - userId
+        - limitAmount
+        - isActive
+        - effectiveFrom
+
+    PaymentCreditLimitUpdateRequest:
+      type: object
+      properties:
+        companyId:
+          type: integer
+          format: int64
+          nullable: true
+        limitAmount:
+          type: number
+          format: decimal
+        isActive:
+          type: boolean
+        effectiveFrom:
+          type: string
+          format: date-time
+        effectiveTo:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - limitAmount
+      additionalProperties: false
+
+    PaymentDebtBalance:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        companyId:
+          type: integer
+          format: int64
+          nullable: true
+        currentDebt:
+          type: number
+          format: decimal
+        lastUpdatedAt:
+          type: string
+          format: date-time
+      required:
+        - userId
+        - currentDebt
+
+    NotificationTemplateSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        type:
+          type: string
+          description: Template type (e.g. OTP, PICKUP_REMINDER, DEBT_REMINDER, COMMISSION_CHANGE).
+        description:
+          type: string
+        status:
+          type: string
+          description: Template status (ACTIVE/INACTIVE).
+      required:
+        - id
+        - code
+        - type
+        - status
+
+    NotificationTemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/NotificationTemplateSummary'
+        - type: object
+          properties:
+            body:
+              type: string
+            language:
+              type: string
+              description: Optional language code (e.g. vi-VN).
+            allowedPlaceholders:
+              type: array
+              items:
+                type: string
+
+    NotificationTemplateCreateRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        body:
+          type: string
+        language:
+          type: string
+          nullable: true
+        status:
+          type: string
+          description: Initial status (ACTIVE/INACTIVE).
+      required:
+        - code
+        - type
+        - body
+        - status
+      additionalProperties: false
+
+    NotificationTemplateUpdateRequest:
+      type: object
+      properties:
+        description:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+      additionalProperties: false
+
+    NotificationSendOtpRequest:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+        otpCode:
+          type: string
+        ttlMinutes:
+          type: integer
+        templateCode:
+          type: string
+      required:
+        - phoneNumber
+        - otpCode
+        - ttlMinutes
+        - templateCode
+      additionalProperties: false
+
+    NotificationSendEventRequest:
+      type: object
+      properties:
+        eventType:
+          type: string
+        companyId:
+          type: integer
+          format: int64
+        recipients:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: One or more recipient phone numbers.
+        payload:
+          type: object
+          description: Business payload used to fill template placeholders.
+        eventId:
+          type: string
+          description: Optional unique event identifier for idempotency and tracing.
+      required:
+        - eventType
+        - companyId
+        - recipients
+        - payload
+      additionalProperties: false
+
+    NotificationSendResult:
+      type: object
+      properties:
+        status:
+          type: string
+          description: High-level delivery status (e.g. ACCEPTED, FAILED, SUPPRESSED).
+        errorCode:
+          type: string
+          nullable: true
+        providerMessageId:
+          type: string
+          nullable: true
+      required:
+        - status
+
+    NotificationLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        correlationId:
+          type: string
+        recipientMasked:
+          type: string
+        templateCode:
+          type: string
+          nullable: true
+        eventType:
+          type: string
+          nullable: true
+        channel:
+          type: string
+          description: Notification channel (e.g. ZNS).
+        status:
+          type: string
+        providerMessageId:
+          type: string
+          nullable: true
+        errorCode:
+          type: string
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - correlationId
+        - recipientMasked
+        - status
+        - sentAt
+
+    NotificationConfig:
+      type: object
+      properties:
+        companyId:
+          type: integer
+          format: int64
+        enableOtp:
+          type: boolean
+        enablePickupReminder:
+          type: boolean
+        enableDebtReminder:
+          type: boolean
+        enableCommissionChange:
+          type: boolean
+      required:
+        - companyId
+        - enableOtp
+        - enablePickupReminder
+        - enableDebtReminder
+        - enableCommissionChange
+
+    NotificationConfigUpdateRequest:
+      type: object
+      properties:
+        enableOtp:
+          type: boolean
+        enablePickupReminder:
+          type: boolean
+        enableDebtReminder:
+          type: boolean
+        enableCommissionChange:
+          type: boolean
+      additionalProperties: false
+
+    AdminCompanySummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        companyCode:
+          type: string
+        companyName:
+          type: string
+        zone:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - companyCode
+        - companyName
+        - status
+
+    AdminCompanyDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminCompanySummary'
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+
+    AdminCompanyCreateRequest:
+      type: object
+      properties:
+        companyCode:
+          type: string
+        companyName:
+          type: string
+        zone:
+          type: string
+        status:
+          type: string
+          description: Initial status (ACTIVE/INACTIVE).
+      required:
+        - companyCode
+        - companyName
+        - status
+      additionalProperties: false
+
+    AdminCompanyUpdateRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+        zone:
+          type: string
+        status:
+          type: string
+      additionalProperties: false
+
+    AdminPickupPointDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        companyId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        status:
+          type: string
+      required:
+        - id
+        - companyId
+        - name
+        - isDefault
+        - status
+
+    AdminPickupPointCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        status:
+          type: string
+          description: Initial status (ACTIVE/INACTIVE).
+      required:
+        - name
+        - status
+      additionalProperties: false
+
+    AdminPickupPointUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        status:
+          type: string
+      additionalProperties: false
+
+    AdminRole:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required:
+        - id
+        - code
+        - name
+
+    AdminRoleCreateRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required:
+        - code
+        - name
+      additionalProperties: false
+
+    AdminRoleUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      additionalProperties: false
+
+    AdminUserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        loginId:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - loginId
+        - status
+
+    AdminUserDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminUserSummary'
+        - type: object
+          properties:
+            companyId:
+              type: integer
+              format: int64
+              nullable: true
+
+    AdminUserCreateRequest:
+      type: object
+      properties:
+        loginId:
+          type: string
+        displayName:
+          type: string
+        companyId:
+          type: integer
+          format: int64
+          nullable: true
+        roleCodes:
+          type: array
+          minItems: 1
+          items:
+            type: string
+      required:
+        - loginId
+        - roleCodes
+      additionalProperties: false
+
+    AdminUserUpdateRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        status:
+          type: string
+        roleCodes:
+          type: array
+          minItems: 1
+          items:
+            type: string
+      additionalProperties: false
+
+    AdminSystemConfig:
+      type: object
+      properties:
+        systemName:
+          type: string
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        legalEntityName:
+          type: string
+          nullable: true
+        legalAddress:
+          type: string
+          nullable: true
+        termsUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    AdminSystemConfigUpdateRequest:
+      type: object
+      properties:
+        systemName:
+          type: string
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        legalEntityName:
+          type: string
+          nullable: true
+        legalAddress:
+          type: string
+          nullable: true
+        termsUrl:
+          type: string
+          format: uri
+          nullable: true
+      additionalProperties: false
+
+    AdminAuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        timestamp:
+          type: string
+          format: date-time
+        actorType:
+          type: string
+        actorId:
+          type: integer
+          format: int64
+          nullable: true
+        actionType:
+          type: string
+        module:
+          type: string
+        correlationId:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          description: Redacted metadata; must not contain raw PII or secrets.
+      required:
+        - id
+        - timestamp
+        - actorType
+        - actionType
+        - module
+        - correlationId
+        - result
+
+  responses:
+    DefaultError:
+      description: Error
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

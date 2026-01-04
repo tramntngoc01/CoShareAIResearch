@@ -1,0 +1,17 @@
+{
+  "name": "alliance-project-template",
+  "version": "1.0.0",
+  "description": "AI-first Documentation Pack for .NET 9 + React + PostgreSQL",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "keywords": ["documentation", "template", "dotnet", "react", "postgresql"],
+  "author": "Alliance ITSC Team",
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

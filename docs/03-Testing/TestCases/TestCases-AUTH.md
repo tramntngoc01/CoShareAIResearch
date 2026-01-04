@@ -1,0 +1,186 @@
+
+# Test Cases — AUTH: Authentication & Authorization
+
+## Smoke tests
+- TC-AUTH-S01: US-AUTH-001 Happy path — Register End User via phone + OTP (SC-AUTH-001 → SC-AUTH-002)
+	- Preconditions:
+		- Test environment can deliver OTP via NOTIFICATIONS/ZNS (or has a controlled stub).
+		- Phone number is not registered as an active End User.
+	- Test data (fake):
+		- fullName: "Trần Thị B"
+		- companyName: "Công ty Điện tử KCN X"
+		- phone: "0912345678"
+		- acceptTerms: true
+		- deviceInfo: use a valid sample per OpenAPI
+	- Steps:
+		- From SC-AUTH-001, submit registration form.
+		- Verify API call `POST /api/v1/auth/end-user/register/request-otp` returns `202 Accepted`.
+		- From SC-AUTH-002, enter the OTP received via ZNS.
+		- Verify API call `POST /api/v1/auth/end-user/register/verify-otp` returns `200 OK` with `LoginResponse`.
+	- Expected:
+		- `verify-otp` response contains access token + refresh token (per OpenAPI) and user summary.
+		- User can be treated as authenticated immediately after `verify-otp`.
+		- `X-Correlation-Id` is present in responses (generated if not provided).
+	- Notes:
+		- Capture the `X-Correlation-Id` and attach to any defect.
+		- Verify no OTP value is ever returned in any API response.
+	- Severity: Blocker
+
+- TC-AUTH-S02: US-AUTH-001 API-only smoke — `request-otp` returns 202 with no body
+	- Preconditions:
+		- Valid fake registration inputs (phone not registered).
+	- Test data (fake):
+		- phone: "0912345678"
+	- Steps:
+		- Call `POST /api/v1/auth/end-user/register/request-otp` with a valid payload.
+	- Expected:
+		- `202 Accepted`.
+		- Response body is empty.
+		- `X-Correlation-Id` header is present.
+	- Notes:
+		- This is a fast health check for the registration entrypoint.
+	- Severity: Critical
+
+## Regression candidates
+- TC-AUTH-R01: US-AUTH-001 EC1 — Invalid phone format rejected server-side
+	- Preconditions:
+		- None.
+	- Test data (fake):
+		- phone: "09123ABC"
+	- Steps:
+		- Call `POST /api/v1/auth/end-user/register/request-otp` with invalid `phone`.
+	- Expected:
+		- `400 Bad Request`.
+		- Error envelope includes code `AUTH_INVALID_PHONE_FORMAT`.
+		- No OTP is sent.
+	- Notes:
+		- Complements client-side validation in SC-AUTH-001.
+	- Severity: Major
+
+- TC-AUTH-R02: US-AUTH-001 EC2 — OTP request rate limited
+	- Preconditions:
+		- Rate limit window and max attempts are configured (per AUTH options).
+	- Test data (fake):
+		- phone: "0912345678"
+	- Steps:
+		- Call `POST /api/v1/auth/end-user/register/request-otp` repeatedly for the same `phone` until the limit is exceeded.
+	- Expected:
+		- Once the limit is exceeded: `429 Too Many Requests`.
+		- Error envelope includes code `AUTH_OTP_RATE_LIMITED`.
+		- No additional OTP messages are delivered after limit.
+	- Notes:
+		- Attach timestamps and correlationIds for the successful attempts + the blocked attempt.
+	- Severity: Critical
+
+- TC-AUTH-R03: US-AUTH-001 EC3 — ZNS/provider failure does not create a usable OTP
+	- Preconditions:
+		- NOTIFICATIONS/ZNS is forced to fail (timeout/provider down) for the test.
+	- Test data (fake):
+		- phone: "0912345678"
+	- Steps:
+		- Call `POST /api/v1/auth/end-user/register/request-otp` with a valid payload while provider is failing.
+	- Expected:
+		- `500 Internal Server Error` (or mapped failure response per OpenAPI implementation).
+		- Error envelope includes code `AUTH_OTP_DELIVERY_FAILED`.
+		- User cannot complete registration using any OTP for that attempt.
+	- Notes:
+		- Confirm user-facing error stays friendly (no provider internals).
+	- Severity: Critical
+
+- TC-AUTH-R04: US-AUTH-001 EC4 — OTP is bound to the phone number
+	- Preconditions:
+		- OTP was successfully requested for phone A.
+	- Test data (fake):
+		- phone A: "0912345678"
+		- phone B: "0987654321"
+	- Steps:
+		- Request OTP for phone A via `POST /api/v1/auth/end-user/register/request-otp`.
+		- Attempt to verify using the OTP from phone A but submitting phone B in `POST /api/v1/auth/end-user/register/verify-otp`.
+	- Expected:
+		- `401 Unauthorized`.
+		- Error envelope includes code `AUTH_OTP_INVALID_OR_EXPIRED`.
+		- No user account is created for phone B.
+	- Notes:
+		- Covers the “changed phone after OTP” scenario from the story.
+	- Severity: Critical
+
+- TC-AUTH-R05: US-AUTH-001 — Existing user cannot register again
+	- Preconditions:
+		- The phone number is already registered as an active End User.
+	- Test data (fake):
+		- phone: "0912345678"
+	- Steps:
+		- Perform `request-otp`, then attempt `verify-otp` for the already-registered phone.
+	- Expected:
+		- `409 Conflict`.
+		- Error envelope includes code `AUTH_USER_ALREADY_EXISTS`.
+	- Notes:
+		- Confirms the system prevents duplicate accounts.
+	- Severity: Critical
+
+- TC-AUTH-R06: US-AUTH-001 — OTP invalid or expired is rejected
+	- Preconditions:
+		- OTP has been requested at least once.
+	- Test data (fake):
+		- phone: "0912345678"
+		- otpCode: "000000" (wrong)
+	- Steps:
+		- Call `POST /api/v1/auth/end-user/register/verify-otp` with an incorrect OTP.
+		- Repeat with an expired OTP (wait past TTL) if feasible.
+	- Expected:
+		- `401 Unauthorized`.
+		- Error envelope includes code `AUTH_OTP_INVALID_OR_EXPIRED`.
+		- No user account is created.
+	- Notes:
+		- Ensure the error message is generic and does not leak which part was wrong.
+	- Severity: Critical
+
+- TC-AUTH-R07: US-AUTH-001 — Idempotency conflict returns 409
+	- Preconditions:
+		- Idempotency is enabled for both endpoints (per StoryPack).
+	- Test data (fake):
+		- Idempotency-Key: "11111111-1111-1111-1111-111111111111"
+		- Payload A: valid request for phone "0912345678"
+		- Payload B: valid request but different phone (or different fullName)
+	- Steps:
+		- Send `POST /api/v1/auth/end-user/register/request-otp` with Payload A and `Idempotency-Key`.
+		- Re-send the same endpoint with Payload B using the same `Idempotency-Key`.
+	- Expected:
+		- Second request returns `409 Conflict`.
+		- Error envelope includes code `AUTH_IDEMPOTENCY_CONFLICT`.
+	- Notes:
+		- Repeat the same pattern for `verify-otp`.
+	- Severity: Major
+
+## Security sanity
+- TC-AUTH-SEC01: US-AUTH-001 Security — Abuse/negative OTP scenarios (aligns to SEC-AUTH-001)
+	- Preconditions:
+		- None.
+	- Test data (fake):
+		- phone: "0912345678"
+	- Steps:
+		- Spam `POST /api/v1/auth/end-user/register/request-otp` until rate limit triggers.
+		- Attempt `POST /api/v1/auth/end-user/register/verify-otp` with wrong/expired OTP.
+	- Expected:
+		- Rate limit produces `429` with `AUTH_OTP_RATE_LIMITED`.
+		- Wrong/expired OTP produces `401` with `AUTH_OTP_INVALID_OR_EXPIRED`.
+		- System never creates a user on failed verification.
+	- Notes:
+		- Attach correlationIds for blocked attempts.
+	- Severity: Critical
+
+- TC-AUTH-SEC02: US-AUTH-001 Security — No OTP or full phone in logs (aligns to SEC-AUTH-002)
+	- Preconditions:
+		- Tester has access to application logs for the environment.
+	- Test data (fake):
+		- phone: "0912345678"
+	- Steps:
+		- Execute TC-AUTH-S01 (or a failed flow like TC-AUTH-R06).
+		- Inspect logs for entries associated with the captured `X-Correlation-Id`.
+	- Expected:
+		- Logs do not contain the OTP value.
+		- Phone number is masked per Data-Classification requirements.
+		- Logs include `correlationId`.
+	- Notes:
+		- Capture screenshots/snippets (with sensitive values redacted) as evidence.
+	- Severity: Major

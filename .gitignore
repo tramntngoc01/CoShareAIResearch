@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vitepress/cache/
+.vitepress/dist/
+
+# .NET Build
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+*.vs/
+.vs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test
+TestResults/
+coverage/
+playwright-report/
+test-results/
