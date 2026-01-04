@@ -7,6 +7,7 @@
   - ScreenSpec: no `SC-ORDERS-*` provided; UI checks use API-driven assertions.
 - Assumptions / open questions:
   - Single-delivery per order (A-ORDERS-001).
+  - Each order is tied to one pickup point and one company at a time (A-ORDERS-002).
   - POD required to mark `Đã nhận` unless policy says otherwise (A-ORDERS-003).
   - Cancellable statuses and auto-cancel window TBD (Q-ORDERS-001/002); tests blocked until defined.
   - Return/exchange policy and quantity limits TBD (Q-ORDERS-003); tests blocked until defined.
@@ -64,7 +65,7 @@
 - Story IDs: US-ORDERS-003
 - Screen IDs: N/A (API-driven)
 - Preconditions: Order in cancelable status (e.g., `Đã xác nhận`) belonging to `user_t3`; `ops_admin_01` and `super_admin_01` authenticated.
-- Test data (fake): cancel reason "NCC hết hàng", Idempotency-Key `idem-ord-cancel-001`.
+- Test data (fake): cancel reason "Nhà cung cấp hết hàng (supplier out of stock)", Idempotency-Key `idem-ord-cancel-001`.
 - Steps:
   1. Ops calls `POST /api/v1/orders/{id}/cancel-request` with reason.
   2. Verify order transitions to cancellation pending via `GET /api/v1/orders/{id}`.
@@ -83,7 +84,7 @@
 - Story IDs: US-ORDERS-004
 - Screen IDs: N/A (API-driven)
 - Preconditions: Order delivered (status `Đã nhận`), created from E2E-ORDERS-002; return policy scope confirmed.
-- Test data (fake): return items `[ {productId:1002, quantity:1} ]`, reason "Torn packaging (Bao bì rách)", Idempotency-Key `idem-ord-return-001`.
+- Test data (fake): return items `[ {productId:1002, quantity:1} ]`, reason "Bao bì rách (torn packaging)", Idempotency-Key `idem-ord-return-001`.
 - Steps:
   1. Shipper/support calls `POST /api/v1/orders/{id}/returns` with items and reason.
   2. Query return object or order detail (depending on implementation) to confirm recorded status.
@@ -205,7 +206,7 @@
 - Story IDs: US-ORDERS-003
 - Screen IDs: N/A
 - Preconditions: Order already `Đã nhận`/`CANCELLED` where cancel not allowed.
-- Test data (fake): reason "Already delivered (Đã giao xong)", Idempotency-Key `idem-ord-cancel-bad`.
+- Test data (fake): reason "Đã giao xong (already delivered)", Idempotency-Key `idem-ord-cancel-bad`.
 - Steps:
   1. Call `POST /api/v1/orders/{id}/cancel-request`.
 - Expected results:
@@ -363,12 +364,73 @@
 - Evidence to capture: sequence of responses, final order detail.
 - Notes: Blocked by policy (Q-ORDERS-004) until rate-limit configuration is defined.
 
-## Section 6: Regression Suite (IDs list with brief references)
-- REG-ORDERS-001: Regression marker for full lifecycle happy path (reuse E2E-ORDERS-002 steps).
-- REG-ORDERS-002: Regression marker for order creation validation (reuse IT-ORDERS-001 & IT-ORDERS-002).
-- REG-ORDERS-003: Regression marker for cancel request approval flow (reuse E2E-ORDERS-003).
-- REG-ORDERS-004: Regression marker for POD requirement (reuse IT-ORDERS-009).
-- REG-ORDERS-005: Regression marker for authz on order access (reuse SEC-ORDERS-001).
+## Section 6: Regression Suite
+
+### REG-ORDERS-001 — Lifecycle happy path smoke
+- Priority: P0
+- Story IDs: US-ORDERS-001, US-ORDERS-002, US-ORDERS-004
+- Screen IDs: N/A
+- Preconditions: Baseline order data available; roles (`ops_admin_01`, `shipper_200`) scoped appropriately.
+- Test data (fake): Same as E2E-ORDERS-002 (order_cod_1, POD URL).
+- Steps:
+  1. Execute E2E-ORDERS-002 end-to-end (confirm → deliver with POD).
+- Expected results:
+  - Matches E2E-ORDERS-002 expected outcomes (ordered status progression, POD stored, audit entries correct).
+- Evidence to capture: Status transition responses, POD payload, final order detail.
+- Notes: Regression marker; no deviation from E2E-ORDERS-002.
+
+### REG-ORDERS-002 — Order creation validation
+- Priority: P0
+- Story IDs: US-ORDERS-001
+- Screen IDs: N/A
+- Preconditions: `user_t3` authenticated; inactive/out-of-stock products configured.
+- Test data (fake): Same as IT-ORDERS-001 (empty cart) and IT-ORDERS-002 (inactive/out-of-stock).
+- Steps:
+  1. Run IT-ORDERS-001 scenario (empty items).
+  2. Run IT-ORDERS-002 scenarios (inactive, out-of-stock).
+- Expected results:
+  - Errors returned with `ORDERS_CART_EMPTY`, `ORDERS_PRODUCT_INACTIVE`, `ORDERS_INSUFFICIENT_STOCK` respectively.
+- Evidence to capture: Error responses with correlationIds.
+- Notes: Regression marker; ensures core validation remains enforced.
+
+### REG-ORDERS-003 — Cancel request approval flow
+- Priority: P0
+- Story IDs: US-ORDERS-003
+- Screen IDs: N/A
+- Preconditions: Order in cancelable status; roles Ops and Super Admin available.
+- Test data (fake): Same as E2E-ORDERS-003.
+- Steps:
+  1. Execute E2E-ORDERS-003 (create cancel request → approve).
+- Expected results:
+  - Cancel request recorded, order moves to cancelled, audit fields populated.
+- Evidence to capture: Cancel request response, decision response, final order detail.
+- Notes: Regression marker; blocked by Q-ORDERS-001 if cancelable statuses undefined.
+
+### REG-ORDERS-004 — POD requirement guard
+- Priority: P0
+- Story IDs: US-ORDERS-004
+- Screen IDs: N/A
+- Preconditions: Order in `READY_FOR_PICKUP`; `shipper_200` authenticated.
+- Test data (fake): Same as IT-ORDERS-009 (missing podImageUrls).
+- Steps:
+  1. Execute IT-ORDERS-009.
+- Expected results:
+  - `ORDERS_POD_REQUIRED` returned; order status unchanged.
+- Evidence to capture: Error response, follow-up order detail.
+- Notes: Regression marker; enforces POD rule.
+
+### REG-ORDERS-005 — Authz on order access
+- Priority: P0
+- Story IDs: US-ORDERS-001, US-ORDERS-005
+- Screen IDs: N/A
+- Preconditions: `user_t3` and `user_other` each have orders.
+- Test data (fake): OrderId belonging to `user_other`.
+- Steps:
+  1. Execute SEC-ORDERS-001 (attempt cross-user access) and IT-ORDERS-011 (my orders scope).
+- Expected results:
+  - Cross-user access rejected with 403/404; my-list scoped to caller.
+- Evidence to capture: Error responses with correlationId, list response scoped correctly.
+- Notes: Regression marker; protects multi-tenant isolation.
 
 ## Section 7: Open Questions / blockers
 - Q-ORDERS-001: Exact list of cancelable statuses. Tests IT-ORDERS-007 and E2E-ORDERS-003 blocked until clarified.
