@@ -1,4 +1,5 @@
 using CoShare.Domain.Auth;
+using Xunit;
 
 namespace CoShare.Domain.UnitTests.Auth;
 

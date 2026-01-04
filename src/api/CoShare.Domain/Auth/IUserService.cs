@@ -30,6 +30,20 @@ public interface IUserService
     /// Get user details by ID.
     /// </summary>
     Task<UserDetails?> GetUserByIdAsync(long userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get user details by phone number (US-AUTH-002).
+    /// </summary>
+    Task<UserDetails?> GetUserByPhoneAsync(string phone, CancellationToken ct = default);
+    /// <summary>
+    /// Get admin user details by login (username = email or phone).
+    /// </summary>
+    Task<AdminUserDetails?> GetAdminUserByLoginAsync(string login, CancellationToken ct = default);
+
+    /// <summary>
+    /// Verify password against hash (BCrypt/Argon2).
+    /// </summary>
+    bool VerifyPassword(string password, string passwordHash);
 }
 
 /// <summary>
@@ -37,9 +51,10 @@ public interface IUserService
 /// </summary>
 public sealed record UserDetails
 {
-    public required long UserId { get; init; }
+    public required long Id { get; init; }
     public required string FullName { get; init; }
     public required string Phone { get; init; }
     public required long CompanyId { get; init; }
     public required int Tier { get; init; }
+    public required string Status { get; init; }
 }

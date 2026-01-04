@@ -60,3 +60,61 @@ public sealed record RegistrationResult
     public static RegistrationResult Fail(string code, string message) =>
         new() { Success = false, ErrorCode = code, ErrorMessage = message };
 }
+
+/// <summary>
+/// Result of user login operation (US-AUTH-002).
+/// </summary>
+public sealed record LoginResult
+{
+    public bool Success { get; init; }
+    public string? ErrorCode { get; init; }
+    public string? ErrorMessage { get; init; }
+    public long? UserId { get; init; }
+    public string? FullName { get; init; }
+    public string? Phone { get; init; }
+    public long? CompanyId { get; init; }
+    public int? Tier { get; init; }
+
+    public static LoginResult Ok(long userId, string fullName, string phone, long companyId, int tier) =>
+        new()
+        {
+            Success = true,
+            UserId = userId,
+            FullName = fullName,
+            Phone = phone,
+            CompanyId = companyId,
+            Tier = tier
+        };
+
+    public static LoginResult Fail(string code, string message) =>
+        new() { Success = false, ErrorCode = code, ErrorMessage = message };
+}
+
+/// <summary>
+/// Result of token refresh operation (US-AUTH-003).
+/// </summary>
+public sealed record RefreshResult
+{
+    public bool Success { get; init; }
+    public string? ErrorCode { get; init; }
+    public string? ErrorMessage { get; init; }
+    public long? UserId { get; init; }
+    public string? FullName { get; init; }
+    public string? Phone { get; init; }
+    public long? CompanyId { get; init; }
+    public int? Tier { get; init; }
+
+    public static RefreshResult Ok(long userId, string fullName, string phone, long companyId, int tier) =>
+        new()
+        {
+            Success = true,
+            UserId = userId,
+            FullName = fullName,
+            Phone = phone,
+            CompanyId = companyId,
+            Tier = tier
+        };
+
+    public static RefreshResult Fail(string code, string message) =>
+        new() { Success = false, ErrorCode = code, ErrorMessage = message };
+}

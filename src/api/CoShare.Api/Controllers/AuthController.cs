@@ -38,6 +38,52 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Admin login (Admin Portal) - US-AUTH-005.
+    /// POST /api/v1/auth/login
+    /// </summary>
+    /// <remarks>
+    /// Authenticates an admin user by username (email/phone) and password.
+    /// AC1: Admin with valid credentials can login and see dashboard for their role.
+    /// AC2: End Users cannot login to Admin Portal even with valid credentials.
+    /// AC4: Generic error messages do not reveal account details.
+    /// </remarks>
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> AdminLogin(
+        [FromBody] AdminLoginRequest request,
+        [FromHeader(Name = "X-Correlation-Id")] string? correlationId,
+        CancellationToken ct)
+    {
+        correlationId ??= Guid.NewGuid().ToString();
+        Response.Headers["X-Correlation-Id"] = correlationId;
+
+        var result = await _authService.AdminLoginAsync(request.Username, request.Password, correlationId, ct);
+
+        if (!result.Success)
+        {
+            var statusCode = MapErrorCodeToStatusCode(result.ErrorCode!);
+            return StatusCode(statusCode, CreateErrorResponse(result.ErrorCode!, result.ErrorMessage!, correlationId));
+        }
+
+        // AC3: Log successful login (correlationId included)
+        _logger.LogInformation(
+            "Admin login successful, tokens issued. CorrelationId={CorrelationId}",
+            correlationId);
+
+        var response = new AdminLoginResponse
+        {
+            AccessToken = result.AccessToken!,
+            RefreshToken = result.RefreshToken!,
+            ExpiresIn = result.ExpiresIn,
+            TokenType = "Bearer"
+        };
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Start end-user registration by requesting an OTP.
     /// POST /api/v1/auth/end-user/register/request-otp
     /// </summary>
@@ -183,6 +229,10 @@ public class AuthController : ControllerBase
             AuthErrorCodes.OtpMaxAttemptsExceeded => StatusCodes.Status401Unauthorized,
             AuthErrorCodes.UserAlreadyExists => StatusCodes.Status409Conflict,
             AuthErrorCodes.IdempotencyConflict => StatusCodes.Status409Conflict,
+            // US-AUTH-005: Admin login errors
+            AuthErrorCodes.AdminInvalidCredentials => StatusCodes.Status401Unauthorized,
+            AuthErrorCodes.AdminLocked => StatusCodes.Status403Forbidden,
+            AuthErrorCodes.AdminNotAuthorized => StatusCodes.Status403Forbidden,
             _ => StatusCodes.Status500InternalServerError
         };
     }

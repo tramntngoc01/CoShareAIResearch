@@ -4,6 +4,7 @@ using System.Text.Json;
 using CoShare.Api.Contracts.Auth;
 using CoShare.Api.Contracts.Common;
 using CoShare.Domain.Auth;
+using Xunit;
 
 namespace CoShare.Api.IntegrationTests.Auth;
 

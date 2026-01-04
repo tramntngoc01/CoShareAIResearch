@@ -37,4 +37,15 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     {
         await _context.SaveChangesAsync(ct);
     }
+
+    public async Task<List<RefreshToken>> GetActiveTokensByUserIdAsync(long userId, CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return await _context.RefreshTokens
+            .Where(t => t.UserId == userId
+                     && !t.IsDeleted
+                     && t.RevokedAt == null
+                     && t.ExpiresAt > now)
+            .ToListAsync(ct);
+    }
 }

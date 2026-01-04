@@ -48,11 +48,12 @@ public class UserService : IUserService
             var userId = _nextUserId++;
             var user = new UserDetails
             {
-                UserId = userId,
+                Id = userId,
                 FullName = fullName,
                 Phone = phone,
                 CompanyId = companyId,
-                Tier = 3 // New end users are Tier 3
+                Tier = 3, // New end users are Tier 3
+                Status = "Active"
             };
 
             _usersByPhone[phone] = user;
@@ -69,8 +70,33 @@ public class UserService : IUserService
     {
         lock (_lock)
         {
-            var user = _usersByPhone.Values.FirstOrDefault(u => u.UserId == userId);
+            var user = _usersByPhone.Values.FirstOrDefault(u => u.Id == userId);
             return Task.FromResult(user);
         }
+    }
+
+    public Task<UserDetails?> GetUserByPhoneAsync(string phone, CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            _usersByPhone.TryGetValue(phone, out var user);
+            return Task.FromResult(user);
+        }
+    }
+
+    public Task<AdminUserDetails?> GetAdminUserByLoginAsync(string login, CancellationToken ct = default)
+    {
+        // TODO: Implement actual admin user lookup by login (US-AUTH-005)
+        // This is a stub for testing purposes
+        _logger.LogWarning("GetAdminUserByLoginAsync not implemented, returning null. Login={Login}", login);
+        return Task.FromResult<AdminUserDetails?>(null);
+    }
+
+    public bool VerifyPassword(string password, string passwordHash)
+    {
+        // TODO: Implement actual password verification with BCrypt/Argon2 (US-AUTH-005)
+        // This is a stub for testing purposes
+        _logger.LogWarning("VerifyPassword not implemented, returning false");
+        return false;
     }
 }
