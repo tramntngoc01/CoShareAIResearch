@@ -29,6 +29,24 @@ export interface EndUserRegisterVerifyRequest {
 }
 
 /**
+ * POST /api/v1/auth/end-user/login/request-otp
+ * Schema: EndUserLoginStartRequest
+ */
+export interface EndUserLoginStartRequest {
+  phone: string;          // maxLength: 20
+}
+
+/**
+ * POST /api/v1/auth/end-user/login/verify-otp
+ * Schema: EndUserLoginVerifyRequest
+ */
+export interface EndUserLoginVerifyRequest {
+  phone: string;          // maxLength: 20
+  otpCode: string;        // maxLength: 10
+  deviceInfo?: DeviceInfo;
+}
+
+/**
  * Schema: DeviceInfo
  */
 export interface DeviceInfo {
@@ -94,6 +112,8 @@ export const AUTH_ERROR_CODES = {
   AUTH_OTP_DELIVERY_FAILED: 'AUTH_OTP_DELIVERY_FAILED',
   AUTH_OTP_INVALID_OR_EXPIRED: 'AUTH_OTP_INVALID_OR_EXPIRED',
   AUTH_USER_ALREADY_EXISTS: 'AUTH_USER_ALREADY_EXISTS',
+  AUTH_USER_NOT_FOUND: 'AUTH_USER_NOT_FOUND',
+  AUTH_USER_LOCKED: 'AUTH_USER_LOCKED',
   AUTH_IDEMPOTENCY_CONFLICT: 'AUTH_IDEMPOTENCY_CONFLICT',
 } as const;
 

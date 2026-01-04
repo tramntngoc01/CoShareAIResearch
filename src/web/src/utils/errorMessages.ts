@@ -19,6 +19,10 @@ const ERROR_MESSAGES: Record<string, string> = {
     'Mã OTP không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc yêu cầu mã mới.',
   [AUTH_ERROR_CODES.AUTH_USER_ALREADY_EXISTS]:
     'Số điện thoại này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng số khác.',
+  [AUTH_ERROR_CODES.AUTH_USER_NOT_FOUND]:
+    'Tài khoản chưa được đăng ký. Vui lòng đăng ký trước khi đăng nhập.',
+  [AUTH_ERROR_CODES.AUTH_USER_LOCKED]:
+    'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.',
   [AUTH_ERROR_CODES.AUTH_IDEMPOTENCY_CONFLICT]:
     'Yêu cầu trùng lặp. Vui lòng thử lại.',
 
