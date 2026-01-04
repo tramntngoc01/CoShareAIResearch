@@ -1,8 +1,16 @@
 # Test Cases — ORDERS: Orders
 
 ## Section 1: Scope & assumptions
-- Scope: module ORDERS across all APIs in OpenAPI `orders` tag, covering SRS-ORDERS, Stories US-ORDERS-001 → 005, StoryPacks US-ORDERS-001 → 004 (no StoryPack provided for US-ORDERS-005; covered via Story + SRS). No dedicated ScreenSpec `SC-ORDERS-*` provided; UI references use API-driven assertions.
-- Assumptions (from SRS/Open Questions): single-delivery per order (A-ORDERS-001), POD required to mark `Đã nhận` unless policy says otherwise (A-ORDERS-003), allowed cancelable statuses and auto-cancel window are TBD (Q-ORDERS-001/002), detailed return policy TBD (Q-ORDERS-003). Tests blocked on TBD items are marked explicitly as "Blocked by requirement ...".
+- Scope:
+  - Module ORDERS across all APIs in OpenAPI `orders` tag, covering SRS-ORDERS and Stories US-ORDERS-001 → 005.
+  - StoryPacks available: US-ORDERS-001 → 004. StoryPack for US-ORDERS-005 is not provided; coverage derives from the Story + SRS.
+  - ScreenSpec: no `SC-ORDERS-*` provided; UI checks use API-driven assertions.
+- Assumptions / open questions:
+  - Single-delivery per order (A-ORDERS-001).
+  - POD required to mark `Đã nhận` unless policy says otherwise (A-ORDERS-003).
+  - Cancellable statuses and auto-cancel window TBD (Q-ORDERS-001/002); tests blocked until defined.
+  - Return/exchange policy and quantity limits TBD (Q-ORDERS-003); tests blocked until defined.
+  - Tests blocked on TBD items are marked explicitly as "Blocked by requirement ...".
 - Status naming uses Vietnamese display status with English status code in parentheses where needed (e.g., `Đã nhận` / `COMPLETED`) for clarity.
 - Error shape per `Error-Conventions.md` with `error.code` and `correlationId`. No PII in messages/logs.
 
@@ -75,7 +83,7 @@
 - Story IDs: US-ORDERS-004
 - Screen IDs: N/A (API-driven)
 - Preconditions: Order delivered (status `Đã nhận`), created from E2E-ORDERS-002; return policy scope confirmed.
-- Test data (fake): return items `[ {productId:1002, quantity:1} ]`, reason "Bao bì rách", Idempotency-Key `idem-ord-return-001`.
+- Test data (fake): return items `[ {productId:1002, quantity:1} ]`, reason "Torn packaging (Bao bì rách)", Idempotency-Key `idem-ord-return-001`.
 - Steps:
   1. Shipper/support calls `POST /api/v1/orders/{id}/returns` with items and reason.
   2. Query return object or order detail (depending on implementation) to confirm recorded status.
@@ -197,7 +205,7 @@
 - Story IDs: US-ORDERS-003
 - Screen IDs: N/A
 - Preconditions: Order already `Đã nhận`/`CANCELLED` where cancel not allowed.
-- Test data (fake): reason "Đã giao xong", Idempotency-Key `idem-ord-cancel-bad`.
+- Test data (fake): reason "Already delivered (Đã giao xong)", Idempotency-Key `idem-ord-cancel-bad`.
 - Steps:
   1. Call `POST /api/v1/orders/{id}/cancel-request`.
 - Expected results:
