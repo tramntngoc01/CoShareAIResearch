@@ -38,15 +38,21 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<AuthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddDbContext<UsersDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Register repositories
 builder.Services.AddScoped<IOtpRequestRepository, OtpRequestRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<CoShare.Domain.Users.IUserRepository, UserRepository>();
+builder.Services.AddScoped<CoShare.Domain.Users.IUserImportRepository, UserImportRepository>();
 
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<CoShare.Domain.Users.IUsersService, CoShare.Infrastructure.Services.Users.UsersService>();
 
 // Register FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();

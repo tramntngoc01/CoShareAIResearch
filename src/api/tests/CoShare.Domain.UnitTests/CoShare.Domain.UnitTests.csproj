@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\CoShare.Domain\CoShare.Domain.csproj" />
+    <ProjectReference Include="..\..\CoShare.Infrastructure\CoShare.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
