@@ -9,7 +9,7 @@
   - Single-delivery per order (A-ORDERS-001).
   - Each order is tied to one pickup point and one company at a time (A-ORDERS-002).
   - POD required to mark `Đã nhận` unless policy says otherwise (A-ORDERS-003).
-  - Cancellable statuses and auto-cancel window TBD (Q-ORDERS-001/002); tests blocked until defined.
+  - Cancelable statuses and auto-cancel window TBD (Q-ORDERS-001/002); tests blocked until defined.
   - Return/exchange policy and quantity limits TBD (Q-ORDERS-003); tests blocked until defined.
   - Tests blocked on TBD items are marked explicitly as "Blocked by requirement ...".
 - Status naming uses Vietnamese display status with English status code in parentheses where needed (e.g., `Đã nhận` / `COMPLETED`) for clarity.
