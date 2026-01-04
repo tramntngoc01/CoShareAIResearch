@@ -5,11 +5,15 @@
  * Endpoints:
  * - POST /api/v1/auth/end-user/register/request-otp
  * - POST /api/v1/auth/end-user/register/verify-otp
+ * - POST /api/v1/auth/end-user/login/request-otp
+ * - POST /api/v1/auth/end-user/login/verify-otp
  */
 
 import type {
   EndUserRegisterStartRequest,
   EndUserRegisterVerifyRequest,
+  EndUserLoginStartRequest,
+  EndUserLoginVerifyRequest,
   LoginResponse,
   ErrorResponse,
   CompanySummary,
@@ -177,4 +181,82 @@ export async function getCompanies(): Promise<ApiResult<CompanySummary[]>> {
       },
     };
   }
+}
+
+/**
+ * POST /api/v1/auth/end-user/login/request-otp
+ * 
+ * For an existing end user, validate the phone number and trigger an OTP via NOTIFICATIONS for first-time login.
+ * Returns 202 Accepted on success.
+ */
+export async function requestLoginOtp(
+  request: EndUserLoginStartRequest,
+  idempotencyKey?: string
+): Promise<ApiResult<void>> {
+  const key = idempotencyKey || generateIdempotencyKey();
+
+  const response = await fetch(`${API_BASE}/auth/end-user/login/request-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': key,
+    },
+    body: JSON.stringify(request),
+  });
+
+  const correlationId = response.headers.get('X-Correlation-Id') || undefined;
+
+  if (response.status === 202) {
+    return { success: true, correlationId };
+  }
+
+  const errorResponse = await parseErrorResponse(response);
+  return {
+    success: false,
+    error: errorResponse.error,
+    correlationId: errorResponse.error.correlationId || correlationId,
+  };
+}
+
+/**
+ * POST /api/v1/auth/end-user/login/verify-otp
+ * 
+ * Verifies the OTP for an existing end user and issues tokens for the device/browser.
+ * Returns 200 with LoginResponse on success.
+ */
+export async function verifyLoginOtp(
+  phone: string,
+  otpCode: string,
+  idempotencyKey?: string
+): Promise<ApiResult<LoginResponse>> {
+  const key = idempotencyKey || generateIdempotencyKey();
+
+  const request: EndUserLoginVerifyRequest = {
+    phone,
+    otpCode,
+    deviceInfo: getDeviceInfo(),
+  };
+
+  const response = await fetch(`${API_BASE}/auth/end-user/login/verify-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': key,
+    },
+    body: JSON.stringify(request),
+  });
+
+  const correlationId = response.headers.get('X-Correlation-Id') || undefined;
+
+  if (response.ok) {
+    const data = (await response.json()) as LoginResponse;
+    return { success: true, data, correlationId };
+  }
+
+  const errorResponse = await parseErrorResponse(response);
+  return {
+    success: false,
+    error: errorResponse.error,
+    correlationId: errorResponse.error.correlationId || correlationId,
+  };
 }
